@@ -3,7 +3,7 @@
 require 'json'
 require 'rev'
 require 'http.rb'
-require 'display.rb'
+require 'display'
 require 'upload.rb'
 require 'fileutils'
 

@@ -216,7 +216,6 @@ class HttpSession < Rev::SSLSocket
   attr_reader   :ssl;
   attr_accessor :data;
   attr_accessor :auth;
-  @@logfd = nil;
 
   def initialize(socket, root, options = {})
     @root        = root;
@@ -241,13 +240,6 @@ class HttpSession < Rev::SSLSocket
   end
 
   private
-  def log(str)
-    if(@@logfd == nil)
-      @@logfd = File.open("http.log", "a+");
-      @@logfd.sync = true;
-    end
-    super(str, false, @@logfd);
-  end
 
   def ssl_context
     @_ssl_context = OpenSSL::SSL::SSLContext.new();
@@ -259,7 +251,7 @@ class HttpSession < Rev::SSLSocket
   end
 
   def on_connect
-    log("connected");
+    debug("connected");
     if(@ssl)
       extend Rev::SSL
       @_connecting ? ssl_client_start : ssl_server_start
@@ -268,7 +260,7 @@ class HttpSession < Rev::SSLSocket
   end
 
   def on_close()
-    log("disconnected");
+    debug("disconnected");
   end
       
   def on_read(data)
@@ -299,7 +291,7 @@ class HttpSession < Rev::SSLSocket
       break if(@sck_data.bytesize() < @length);
 
       @req.addData(@sck_data.slice!(0 .. @length - 1)) if(@length != 0);
-      log(@req);
+      debug(@req);
       m_auth    = nil;
       m_request = nil;
 
@@ -526,8 +518,6 @@ end
 class HttpServer < Rev::TCPServer
   attr_reader :root
 
-  @@logfd = nil;
-
   # options
   #  * port (default 8080)
   #  * ssl (default false)
@@ -539,16 +529,8 @@ class HttpServer < Rev::TCPServer
     @root   = root
     @root ||= HttpRootNode.new();
 
-    log("starting http server")
+    debug("starting http server")
     super(nil, port, HttpSession, @root, options);
   end
 
-  private
-  def log(str)
-    if(@@logfd == nil)
-      @@logfd = File.open("http.log", "a+");
-      @@logfd.sync = true;
-    end
-    super(str, false, @@logfd);
-  end
 end

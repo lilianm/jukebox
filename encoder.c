@@ -227,12 +227,12 @@ int main(int argc, char *argv[])
                                        name.len + srcdir.len + 1 + 1, STRING_ALLOC_STATIC);
 
             srcfile   = string_concat(srcfile, srcdir);
-            srcfile   = string_chr(srcfile, '/');
+            srcfile   = string_add_chr(srcfile, '/');
             srcfile   = string_concat(srcfile, name);
             data->src = srcfile.txt;
 
             dstfile   = string_concat(dstfile, dstdir);
-            dstfile   = string_chr(dstfile, '/');
+            dstfile   = string_add_chr(dstfile, '/');
             dstfile   = string_concat(dstfile, name);
             data->dst = dstfile.txt;
 

@@ -3,9 +3,9 @@
 require 'json'
 require 'rev'
 require 'http.rb'
-require 'display.rb'
+require 'display'
 require 'uri'
-require 'id3.rb'
+require 'mp3stream'
 
 class UploadManager < HttpNode
   def initialize(conf)

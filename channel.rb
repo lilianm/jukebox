@@ -3,10 +3,10 @@
 require 'rev'
 require 'time'
 
-require 'display.rb'
+require 'display'
 require 'playlist.rb'
 require 'id3.rb'
-require 'Mp3Stream'
+require 'mp3stream'
 
 class ChannelsCron < Rev::TimerWatcher
   def initialize()
