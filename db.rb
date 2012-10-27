@@ -90,7 +90,29 @@ class Library
   def initialize()
     @db = SQLite3::Database.new("jukebox.db")
     @db.results_as_hash = true 
+    @db.execute( "create table if not exists token (
+                       user TEXT UNIQUE,
+                       token TEXT  PRIMARY KEY);" );
+
     log("library initialized.");
+  end
+
+  def check_token(token)
+    req = @db.prepare("SELECT user FROM token WHERE token=?");
+    res = req.execute!(token);
+    req.close();
+    return nil if(res[0] == nil);
+    res[0].at(0);
+  end
+
+  def create_token(user, token)
+    req = @db.prepare("INSERT OR IGNORE INTO token (user, token) VALUES(?,?)");
+    res = req.execute!(user, token);
+    req.close();
+    req = @db.prepare("SELECT token FROM token WHERE user=?");
+    res = req.execute!(user);
+    req.close();
+    res[0].at(0);
   end
 
   # searching methods here 
