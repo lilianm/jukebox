@@ -116,12 +116,6 @@ class Library
   end
 
   # searching methods here 
-  def get_nb_songs()
-    req = @db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK}");
-    res = req.execute!();
-    req.close();
-    res[0].at(0);
-  end
   
   def get_total(field, comparison, value)
     if(field)
@@ -130,11 +124,12 @@ class Library
       else
         req = @db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK} AND #{field} LIKE :name");
       end
+      res = req.execute!(:name => value);
     else
       req=@db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK}");
+      res = req.execute!();
     end
     
-    res = req.execute!(:name => value);
     req.close();
     res[0].at(0);
   end
@@ -153,15 +148,6 @@ class Library
     end
 
     res;
-  end
-
-  def get_random_from_artist(artist)
-    if(artist != nil)
-      req = @db.prepare("SELECT * FROM library WHERE artist LIKE \"%#{artist}%\" AND status=#{FILE_OK} ORDER BY RANDOM() LIMIT 1");
-      res = req.execute();
-      req.close();
-    end
-    res.map(&Song.from_db).first
   end
 
   def secure_request(fieldsSelection, value, comparison, field, orderBy, firstResult, resultCount)
@@ -208,34 +194,5 @@ class Library
       res = [];
     end
     return res;
-  end
-
-  def encode_file()
-    begin
-      req = @db.prepare("SELECT * FROM library WHERE status=#{FILE_WAIT} LIMIT 1");
-      res = req.execute().map(&Song.from_db);
-      req.close();
-      return nil if(res[0] == nil)
-      res = res.first;
-    rescue => e
-      error(e.to_s + res.to_s, true, $error_file);
-      change_stat(res[0], FILE_ENCODING_FAIL);
-      res = encode_file();
-    end
-    res;
-  end
-
-  def change_stat(mid, state)
-    req = @db.prepare("UPDATE library SET status=? WHERE mid=?");
-    res = req.execute!(state, mid);
-    req.close();
-    res;
-  end
-
-  def check_file(src)
-    req = @db.prepare("SELECT mid FROM library WHERE src=?");
-    res = req.execute!(src);
-    req.close();
-    res.size == 0;
   end
 end
