@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 
+require 'jukebox_fw'
+
 require 'rev'
 require 'time'
 
-require 'display'
 require 'playlist.rb'
 require 'id3.rb'
-require 'mp3stream'
 
 class ChannelsCron < Rev::TimerWatcher
   def initialize()

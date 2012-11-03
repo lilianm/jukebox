@@ -1,11 +1,11 @@
 #!/usr/bin/env ruby
 
+require 'jukebox_fw'
+
 require 'json'
 require 'rev'
 require 'http.rb'
-require 'display'
 require 'uri'
-require 'mp3stream'
 
 class UploadManager < HttpNode
   def initialize(conf)

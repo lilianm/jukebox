@@ -1,9 +1,10 @@
 #!/usr/bin/env ruby
 
+require 'jukebox_fw'
+
 require 'json'
 require 'rev'
 require 'http.rb'
-require 'display'
 require 'upload.rb'
 require 'fileutils'
 

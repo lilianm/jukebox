@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 
-require 'sqlite3'
+require 'jukebox_fw'
 
-require 'display'
+require 'sqlite3'
 
 class Song
   attr_accessor :mid

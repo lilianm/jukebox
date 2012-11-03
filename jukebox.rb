@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 $:.unshift File.dirname($0)
 
+require 'jukebox_fw'
+
 require 'rev'
 require 'socket'
 require 'cgi'
