@@ -144,7 +144,7 @@ class Channel
       @timestamp = Time.now().to_i();
     rescue => e
       @queue.next() if(@queue[0]);
-      error("Can't load mid=#{mid}: #{([ e.to_s ] + e.backtrace).join("\n")}", true, $error_file);
+      error("Can't load mid=#{mid}: #{([ e.to_s ] + e.backtrace).join("\n")}");
       retry;
     end
   end
