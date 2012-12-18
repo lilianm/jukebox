@@ -4,6 +4,14 @@
 #include "db.h"
 #include <string.h>
 
+enum file_status {
+    FILE_WAIT              = 1,
+    FILE_BAD_TAG           = 2,
+    FILE_ENCODING_PROGRESS = 3,
+    FILE_ENCODING_FAIL     = 4,
+    FILE_OK                = 5,
+};
+
 sqlite3 *db = NULL;
 
 int db_init(void)
@@ -21,6 +29,51 @@ int db_init(void)
 
 void db_update_song()
 {
+
+}
+
+void db_request_song(char *fields_selection, char *field, char *value, char *order, int start, int len)
+{
+    char        buffer[1024];
+    mstring     req;
+
+    req = string_init_full(buffer, 0, sizeof(buffer), STRING_ALLOC_STATIC);
+
+    if(fields_selection) {
+        req = string_concat(req, STRING_INIT_CSTR("SELECT ")); 
+        req = string_concat(req, string_init_static(fields_selection));
+        req = string_concat(req, STRING_INIT_CSTR("FROM library WHERE status=5 ")); 
+    } else {
+        req = string_concat(req, STRING_INIT_CSTR("SELECT * FROM library WHERE status=5 "));
+    }
+    if(field) {
+        req = string_concat(req, STRING_INIT_CSTR("AND "));
+        req = string_concat(req, string_init_static(field));
+        req = string_concat(req, STRING_INIT_CSTR(" LIKE ? "));
+    }
+    if(order) {
+        req = string_concat(req, STRING_INIT_CSTR("ORDER BY "));
+        req = string_concat(req, string_init_static(order));
+        req = string_add_chr(req, ' ');
+    }
+
+    if(len != -1) {
+        char len_str[16];
+        snprintf(len_str, sizeof(len_str), "%i", len);
+
+        if(first != -1) {
+            char first_str[16];
+            snprintf(first_str, sizeof(first_str), "%i", start);
+
+            req = string_concat(req, STRING_INIT_CSTR("LIMIT "));
+            req = string_concat(req, string_init_static(first_str));
+            req = string_add_chr(req, ',');
+            req = string_concat(req, string_init_static(len_str));
+        } else {
+            req = string_concat(req, STRING_INIT_CSTR("LIMIT "));
+            req = string_concat(req, string_init_static(len_str));
+        }
+    }
 
 }
 
