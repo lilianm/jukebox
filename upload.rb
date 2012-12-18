@@ -102,7 +102,7 @@ class UploadManager < HttpNode
     begin
       Dir.foreach(File.join(uploadDirectory, user)) do |current_file| 
         if File.file?(File.join(uploadDirectory, user, current_file))
-          id3info = Id3.decode(File.join(uploadDirectory, user, current_file));
+          id3info = Mp3Info.new(File.join(uploadDirectory, user, current_file));
           file = {
             :filename   => current_file,
             :date_upload => File.atime(File.join(uploadDirectory, user, current_file)),
@@ -110,7 +110,7 @@ class UploadManager < HttpNode
             :artist => id3info.artist,
             :album => id3info.album,
             :title => id3info.title,
-            :year => id3info.date,
+            :year => id3info.years,
             :track => id3info.track,
             :genre => id3info.genre
           };
@@ -228,7 +228,7 @@ class UploadManager < HttpNode
                          req["file_name"].force_encoding('UTF-8').encode(Encoding.locale_charmap));
 
     begin
-      id3info = Id3.decode(file_path);
+      id3info = Mp3Info.new(file_path);
     rescue Exception=>e
       error("Validation : Could not retrieve id3 informations #{file_path}, #{e}");
       action_response = {
@@ -262,7 +262,7 @@ class UploadManager < HttpNode
     end
         
     # Todo regexp to check if [0-9]+
-    if( nil == id3info.date or "" == id3info.date or "" == id3info.date )
+    if( nil == id3info.years or "" == id3info.years or "" == id3info.years )
       if( nil == error_message )
         error_message = '';
       end
@@ -278,12 +278,12 @@ class UploadManager < HttpNode
     end
 
     # Todo regexp to check if [0-9]+
-    if( nil == id3info.genre or "" == id3info.genre )
-      if( nil == error_message )
-        error_message = '';
-      end
-      error_message += 'Could not set ID3 tag genre, it must be an integer >=0 and <= 255.';
-    end
+#    if( nil == id3info.genre or "" == id3info.genre )
+#      if( nil == error_message )
+#        error_message = '';
+#      end
+#      error_message += 'Could not set ID3 tag genre, it must be an integer >=0 and <= 255.';
+#    end
     
     
     if( nil != error_message )
@@ -309,7 +309,7 @@ class UploadManager < HttpNode
         if(title.length > 255 )
           title = "#{id3info.title}.mp3"
         end
-        album_folder = "#{id3info.date} - #{id3info.album}";
+        album_folder = "#{id3info.years} - #{id3info.album}";
         dst_folder = File.join(source_dir, id3info.artist);
       rescue Exception=>e
         error(e);

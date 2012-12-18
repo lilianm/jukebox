@@ -89,7 +89,8 @@ static size_t mp3_frame_decode(mp3_frame_info_t *info, uint8_t *data, size_t len
     size_t pos = 0;
 
     CHECK_SIZE(sizeof(mp3_frame_t));
-    info->frame.header = htonl(*((uint32_t *)data));
+    uint32_t header = *((uint32_t *)data);
+    info->frame.header = htonl(header);
 
     if(info->frame.sync != 0x7FF)
         return 0;
