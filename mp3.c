@@ -364,6 +364,16 @@ static size_t id3_v2_get_size(uint8_t *data)
     return size;
 }
 
+__attribute__((used)) static void id3_v2_set_size(uint8_t *data, size_t size)
+{
+    int i;
+
+    for(i = 4; i--; ) {
+        data[i]  = size % 128;
+        size    /= 128;
+    }
+}
+
 static char * id3_v2_get_string(char *data, size_t len)
 {
     switch(data[0]) {
@@ -571,6 +581,16 @@ void mp3_info_dump(const mp3_info_t *info)
     printf("Duration %f\n",    info->duration);
 }
 
+string_t mp3_info_generate_tagv2(const mp3_info_t *info)
+{
+    string_t ret;
+
+    info = info;
+    ret = STRING_INIT_NULL;    
+
+    return ret;
+}
+
 mp3_stream_t * mp3_stream_open(char *file)
 {
     return mp3_stream_init(NULL, file);
@@ -608,12 +628,16 @@ mp3_stream_t * mp3_stream_init(mp3_stream_t *stream, char *file)
     if(frame_size)
         stream->data_size -= frame_size;
 
+    printf("init stream %p %li %p %p\n", stream, stream->size, buf, buf + stream->size);
+
     return stream;
 }
 
 void mp3_stream_close(mp3_stream_t *stream)
 {
     assert(stream);
+
+    printf("close stream %p\n", stream);
 
     munmap(stream->buf, stream->size);
     close(stream->fd);
@@ -653,6 +677,7 @@ int mp3_stream_read(mp3_stream_t *stream, float pos, mp3_buffer_t *buf)
                 return -1;
         }
         stream->offset += frame_size;
+//        printf("read stream %p %li\n", stream, stream->offset);
     }
     
     buf->buf            = begin;

@@ -1,6 +1,8 @@
 #ifndef _MP3_H_
 #define _MP3_H_
 
+#include "mstring.h"
+
 typedef struct mp3_info_t {
     char                *title;
     char                *artist;
@@ -32,6 +34,8 @@ int mp3_info_decode(mp3_info_t *info, char *file);
 void mp3_info_free(mp3_info_t *info);
 
 void mp3_info_dump(const mp3_info_t *info);
+
+string_t mp3_info_generate_tagv2(const mp3_info_t *info);
 
 mp3_stream_t * mp3_stream_open(char *file);
 
