@@ -24,7 +24,7 @@ class ChannelsCron < Rev::TimerWatcher
     log("Cron unregister channel #{ch.name()} [#{@channels.size()}]");
   end
 
-  private 
+  private
   def on_timer
     @channels.each { |c|
       c.cron();
