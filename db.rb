@@ -119,7 +119,7 @@ class Library
   
   def get_total(field, comparison, value)
     if(field && value.size > 0)
-      if( "like" == comparison)
+      if("like" == comparison)
         req = @db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK} AND #{field} LIKE \"%\" || :name || \"%\"");
       else
         req = @db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK} AND #{field} LIKE :name");
@@ -172,15 +172,13 @@ class Library
       request  = "SELECT * FROM library WHERE status=#{FILE_OK} ";
     end
     request << "AND #{field} LIKE  :name " if(field != nil);
-    if(orderBy != nil)
-      request << "ORDER BY #{orderBy} ";
-    end
+    request << "ORDER BY #{orderBy} " if(orderBy != nil);
 
-    if(firstResult && resultCount)
-      request << "LIMIT #{firstResult},#{resultCount}";
-    else 
-      if(resultCount)
-           request << "LIMIT #{resultCount}";
+    if(resultCount)
+      if(firstResult)
+        request << "LIMIT #{firstResult},#{resultCount}";
+      else 
+        request << "LIMIT #{resultCount}";
       end
     end
     
