@@ -1,12 +1,12 @@
 #!/usr/bin/env ruby
 
+require 'jukebox_fw'
+
 require 'rev'
 require 'time'
 
-require 'display.rb'
 require 'playlist.rb'
 require 'id3.rb'
-require 'Mp3Stream'
 
 class ChannelsCron < Rev::TimerWatcher
   def initialize()
@@ -24,7 +24,7 @@ class ChannelsCron < Rev::TimerWatcher
     log("Cron unregister channel #{ch.name()} [#{@channels.size()}]");
   end
 
-  private 
+  private
   def on_timer
     @channels.each { |c|
       c.cron();
@@ -50,10 +50,8 @@ class Channel
     @currentEntry = nil;
     @timestamp    = 0;
     @time         = 0;
-    @nb_songs	  = 0;
 
     log("Creating new channel #{name}");
-    set_nb_songs();
     fetchData();
   end
 
@@ -108,10 +106,6 @@ class Channel
     rsp;
   end
 
-  def set_nb_songs()
-    @nb_songs = @library.get_nb_songs;
-  end
-
   def to_client()
     rsp                  = @currentEntry.to_client();
     rsp[:elapsed]        = @cur.time;
@@ -123,7 +117,7 @@ class Channel
   def fetchData()
     begin
       nb_preload = 11
-      nb_preload = 1 if(@library.get_nb_songs <=  15) # first we check the number of songs in the database leading to left_side (playlist : <s> s s s *c* s s s)
+      nb_preload = 1 if(@library.get_total(nil, nil, nil) <=  15) # first we check the number of songs in the database leading to left_side (playlist : <s> s s s *c* s s s)
       
       delta     = [ nb_preload - @queue.size, 0 ].max;
       delta.times {
@@ -150,7 +144,7 @@ class Channel
       @timestamp = Time.now().to_i();
     rescue => e
       @queue.next() if(@queue[0]);
-      error("Can't load mid=#{mid}: #{([ e.to_s ] + e.backtrace).join("\n")}", true, $error_file);
+      error("Can't load mid=#{mid}: #{([ e.to_s ] + e.backtrace).join("\n")}");
       retry;
     end
   end

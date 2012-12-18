@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
 $:.unshift File.dirname($0)
 
+require 'jukebox_fw'
+
 require 'rev'
 require 'socket'
 require 'cgi'
@@ -18,6 +20,8 @@ require 'db.rb'
 require 'json_api.rb'
 require 'upload.rb'
 require 'basic_api.rb'
+require 'web_debug.rb'
+require 'token_api.rb'
 
 raise("Not support ruby version < 1.9") if(RUBY_VERSION < "1.9.0");
 
@@ -54,21 +58,40 @@ Process.spawn("./encoder", originDir, encodedDir);
 json   = JsonManager.new(channelList, library, config[:upload.to_s], config[:encode.to_s]);
 basic  = BasicApi.new(channelList);
 upload = UploadManager.new(config[:upload.to_s]);
+debug  = DebugPage.new();
+token  = TokenManager.new(library);
 main   = HttpNodeMapping.new("html");
+main_src = HttpNodeMapping.new("html_src");
 stream = Stream.new(channelList, library);
 
 main.addAuth() { |s, req, user, pass|
 #  next nil if(s.ssl != true);
-  next "guest" if(user == "guest");
-  next "PAM"   if(authpam(user, pass) == true);
+  if(req.uri.query)
+    form = Hash[URI.decode_www_form(req.uri.query)] ;
+    if(form["token"])
+      token = form["token"];
+      luser = library.check_token(token);
+
+      if(luser)
+        user.replace(luser);
+        next "token"
+      end
+    end
+  end
+  if(pass)
+    next "guest" if(user == "guest");
+    next "PAM"   if(authpam(user, pass) == true);
+  end
   nil;
 }
 
-root = HttpRootNode.new({ "/api/json" => json,
-                          "/api"      => basic,
-                          "/upload"   => upload,
-                          "/"         => main,
-                          "/stream"   => stream});
+root = HttpRootNode.new({ "/api/json"  => json,
+                          "/api"       => basic,
+                          "/upload"    => upload,
+                          "/"          => main,
+                          "/src"       => main_src,
+                          "/api/token" => token,
+                          "/stream"    => stream});
 #                          "/debug"    => debug,
 
 if(config[:server.to_s] == nil)

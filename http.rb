@@ -178,10 +178,10 @@ class HttpResponse
     HttpResponse.generateError(req, 500, "Internal Server Error");
   end
 
-  def setData(data, contentType = "text/html")
-    @options["Connection"]     = "keep-alive";
-    @options["Content-Length"] = data.bytesize();
-    @options["Content-Type"]   = contentType;
+  def setData(data, contentType = nil)
+    @options["Connection"]     ||= "keep-alive";
+    @options["Content-Length"]   = data.bytesize();
+    @options["Content-Type"]     = contentType || @options["Content-Type"] || "text/html";
 
     @data = data;
   end
@@ -216,7 +216,6 @@ class HttpSession < Rev::SSLSocket
   attr_reader   :ssl;
   attr_accessor :data;
   attr_accessor :auth;
-  @@logfd = nil;
 
   def initialize(socket, root, options = {})
     @root        = root;
@@ -240,14 +239,11 @@ class HttpSession < Rev::SSLSocket
     @_io.remote_address();
   end
 
-  private
-  def log(str)
-    if(@@logfd == nil)
-      @@logfd = File.open("http.log", "a+");
-      @@logfd.sync = true;
-    end
-    super(str, false, @@logfd);
+  def local_address()
+    @_io.local_address();
   end
+
+  private
 
   def ssl_context
     @_ssl_context = OpenSSL::SSL::SSLContext.new();
@@ -259,7 +255,7 @@ class HttpSession < Rev::SSLSocket
   end
 
   def on_connect
-    log("connected");
+    debug("connected");
     if(@ssl)
       extend Rev::SSL
       @_connecting ? ssl_client_start : ssl_server_start
@@ -268,7 +264,7 @@ class HttpSession < Rev::SSLSocket
   end
 
   def on_close()
-    log("disconnected");
+    debug("disconnected");
   end
       
   def on_read(data)
@@ -299,7 +295,7 @@ class HttpSession < Rev::SSLSocket
       break if(@sck_data.bytesize() < @length);
 
       @req.addData(@sck_data.slice!(0 .. @length - 1)) if(@length != 0);
-      log(@req);
+      debug(@req.to_s);
       m_auth    = nil;
       m_request = nil;
 
@@ -324,13 +320,18 @@ class HttpSession < Rev::SSLSocket
         end
       }
       v = @req.options["Authorization"];
-      if(v != nil && m_auth != nil)
-        method, code = v.split(" ", 2);
-        if(method == "Basic" && code != nil)
-          @user, pass = code.unpack("m").first.split(":", 2);
-          pass ||= "";
-          @auth = m_auth.call(self, @req, @user, pass);
+      if(m_auth != nil)
+        pass = nil;
+        if(v)
+          method, code = v.split(" ", 2);
+          if(method == "Basic" && code != nil)
+            @user, pass = code.unpack("m").first.split(":", 2);
+            pass ||= "";
+          end
+        else
+          @user = "unknown";
         end
+        @auth = m_auth.call(self, @req, @user, pass) if(@user);
       end
 
       if(m_auth != nil && @auth == nil)
@@ -466,6 +467,7 @@ class HttpNodeMapping < HttpNode
     @dir = dir;
     st   = File.stat(@dir);
     raise "Not directory" if(st.directory? != true);
+    super();
   end
 
   def on_request(s, req)
@@ -526,8 +528,6 @@ end
 class HttpServer < Rev::TCPServer
   attr_reader :root
 
-  @@logfd = nil;
-
   # options
   #  * port (default 8080)
   #  * ssl (default false)
@@ -539,16 +539,8 @@ class HttpServer < Rev::TCPServer
     @root   = root
     @root ||= HttpRootNode.new();
 
-    log("starting http server")
+    debug("starting http server")
     super(nil, port, HttpSession, @root, options);
   end
 
-  private
-  def log(str)
-    if(@@logfd == nil)
-      @@logfd = File.open("http.log", "a+");
-      @@logfd.sync = true;
-    end
-    super(str, false, @@logfd);
-  end
 end

@@ -1,8 +1,8 @@
 #!/usr/bin/env ruby
 
-require 'sqlite3'
+require 'jukebox_fw'
 
-require 'display.rb'
+require 'sqlite3'
 
 class Song
   attr_accessor :mid
@@ -90,29 +90,46 @@ class Library
   def initialize()
     @db = SQLite3::Database.new("jukebox.db")
     @db.results_as_hash = true 
+    @db.execute( "create table if not exists token (
+                       user TEXT UNIQUE,
+                       token TEXT  PRIMARY KEY);" );
+
     log("library initialized.");
   end
 
-  # searching methods here 
-  def get_nb_songs()
-    req = @db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK}");
-    res = req.execute!();
+  def check_token(token)
+    req = @db.prepare("SELECT user FROM token WHERE token=?");
+    res = req.execute!(token);
+    req.close();
+    return nil if(res[0] == nil);
+    res[0].at(0);
+  end
+
+  def create_token(user, token)
+    req = @db.prepare("INSERT OR IGNORE INTO token (user, token) VALUES(?,?)");
+    res = req.execute!(user, token);
+    req.close();
+    req = @db.prepare("SELECT token FROM token WHERE user=?");
+    res = req.execute!(user);
     req.close();
     res[0].at(0);
   end
+
+  # searching methods here 
   
   def get_total(field, comparison, value)
-    if(field)
-      if( "like" == comparison)
+    if(field && value.size > 0)
+      if("like" == comparison)
         req = @db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK} AND #{field} LIKE \"%\" || :name || \"%\"");
       else
         req = @db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK} AND #{field} LIKE :name");
       end
+      res = req.execute!(:name => value);
     else
       req=@db.prepare("SELECT COUNT (*) FROM library WHERE status=#{FILE_OK}");
+      res = req.execute!();
     end
-    
-    res = req.execute!(:name => value);
+
     req.close();
     res[0].at(0);
   end
@@ -131,15 +148,6 @@ class Library
     end
 
     res;
-  end
-
-  def get_random_from_artist(artist)
-    if(artist != nil)
-      req = @db.prepare("SELECT * FROM library WHERE artist LIKE \"%#{artist}%\" AND status=#{FILE_OK} ORDER BY RANDOM() LIMIT 1");
-      res = req.execute();
-      req.close();
-    end
-    res.map(&Song.from_db).first
   end
 
   def secure_request(fieldsSelection, value, comparison, field, orderBy, firstResult, resultCount)
@@ -164,15 +172,13 @@ class Library
       request  = "SELECT * FROM library WHERE status=#{FILE_OK} ";
     end
     request << "AND #{field} LIKE  :name " if(field != nil);
-    if(orderBy != nil)
-      request << "ORDER BY #{orderBy} ";
-    end
+    request << "ORDER BY #{orderBy} " if(orderBy != nil);
 
-    if(firstResult && resultCount)
-      request << "LIMIT #{firstResult},#{resultCount}";
-    else 
-      if(resultCount)
-           request << "LIMIT #{resultCount}";
+    if(resultCount)
+      if(firstResult)
+        request << "LIMIT #{firstResult},#{resultCount}";
+      else 
+        request << "LIMIT #{resultCount}";
       end
     end
     
@@ -186,34 +192,5 @@ class Library
       res = [];
     end
     return res;
-  end
-
-  def encode_file()
-    begin
-      req = @db.prepare("SELECT * FROM library WHERE status=#{FILE_WAIT} LIMIT 1");
-      res = req.execute().map(&Song.from_db);
-      req.close();
-      return nil if(res[0] == nil)
-      res = res.first;
-    rescue => e
-      error(e.to_s + res.to_s, true, $error_file);
-      change_stat(res[0], FILE_ENCODING_FAIL);
-      res = encode_file();
-    end
-    res;
-  end
-
-  def change_stat(mid, state)
-    req = @db.prepare("UPDATE library SET status=? WHERE mid=?");
-    res = req.execute!(state, mid);
-    req.close();
-    res;
-  end
-
-  def check_file(src)
-    req = @db.prepare("SELECT mid FROM library WHERE src=?");
-    res = req.execute!(src);
-    req.close();
-    res.size == 0;
   end
 end

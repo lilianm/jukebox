@@ -8,7 +8,7 @@ LDFLAGS_ENCODER=${LDFLAGS} -lsqlite3 -pthread
 LDFLAGS_RUBY=${LDFLAGS} --shared ${shell pkg-config --libs ruby-1.9}
 LDFLAGS_HTTP=${LDFLAGS} -lm
 
-all: httpd encoder Mp3Stream.so
+all: httpd encoder jukebox_fw.so
 
 install: all
 
@@ -18,5 +18,5 @@ httpd: sck.o http.o
 encoder: encoder.o mp3.o thread_pool.o db.o mstring.o
 	${LD} -o $@ $+ ${LDFLAGS_ENCODER} 
 
-Mp3Stream.so: mp3.o mp3_stream.o
+jukebox_fw.so: display.o jukebox_fw.o mstring.o mp3.o mp3stream.o
 	${LD} -o $@ $+ ${LDFLAGS_RUBY}

@@ -1,0 +1,10 @@
+crash*
+encoded/
+error.log
+http.log
+exception_stat
+jukebox.cfg
+jukebox.db
+mp3/
+uploads/
+node_modules/
