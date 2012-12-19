@@ -44,7 +44,7 @@ void http_request_line_decode(http_request_t *hr, stream_t *line)
 
 int http_option_search(http_request_t *hr, char *name, stream_t *out)
 {
-    int                 i;
+    unsigned int        i;
     http_option_t*      opt;
 
     for(i = 0; i < hr->options.len; ++i) {
