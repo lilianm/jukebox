@@ -7,13 +7,22 @@
 #define VECTOR_EACH(v, i)                                               \
     for(i = &v->data[v->offset]; i != &v->data[v->offset + v->len]; ++i)
 
+#define VECTOR_REVERSE_EACH(v, i)                                       \
+    for(i = &v->data[v->offset + v->len]; i-- != &v->data[v->offset]; )
+
+#define VECTOR_GET_INDEX(v, i)                                          \
+    (&(v)->data[v->offset + (i)])
+
+#define VECTOR_GET_LEN(v)                                               \
+    ((v)->len)
+
 #define VECTOR_T(name, type)                                            \
                                                                         \
 typedef struct vector_##name {                                          \
-    type        *data;                                                  \
-    int          offset;                                                \
-    int          len;                                                   \
-    int          size;                                                  \
+    type         *data;                                                 \
+    unsigned int  offset;                                               \
+    unsigned int  len;                                                  \
+    unsigned int  size;                                                 \
 } vector_##name##_t;                                                    \
                                                                         \
 __attribute__((used))                                                   \
@@ -70,12 +79,38 @@ static int vector_##name##_pop(vector_##name##_t *v, type *d)           \
 }                                                                       \
                                                                         \
 __attribute__((used))                                                   \
+static int vector_##name##_delete(vector_##name##_t *v, type *d)        \
+{                                                                       \
+    unsigned int idx;                                                   \
+                                                                        \
+    if(d < v->data + v->offset || d >= v->data + v->offset + v->len)    \
+        return -1;                                                      \
+                                                                        \
+    idx = d - v->data;                                                  \
+                                                                        \
+    --v->len;                                                           \
+    if(v->len == idx)                                                   \
+        return 0;                                                       \
+    if(idx == 0) {                                                      \
+        v->offset++;                                                    \
+        if(v->len == 0)                                                 \
+            v->offset = 0;                                              \
+        return 0;                                                       \
+    }                                                                   \
+                                                                        \
+    memmove(&v->data[idx], &v->data[idx + 1], v->len - idx);            \
+                                                                        \
+    return 0;                                                           \
+}                                                                       \
+                                                                        \
+__attribute__((used))                                                   \
 static int vector_##name##_shift(vector_##name##_t *v, type *d)         \
 {                                                                       \
     if(v->len == 0)                                                     \
         return -1;                                                      \
                                                                         \
-    *d = v->data[v->offset++];                                          \
+    if(d)                                                               \
+        *d = v->data[v->offset++];                                      \
     v->len--;                                                           \
                                                                         \
     if(v->len == 0)                                                     \
