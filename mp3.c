@@ -47,7 +47,7 @@ typedef struct mp3_frame_info_t {
     uint32_t     samplerate; // Decoded sample rate
     uint8_t      layer;
     uint8_t      version;
-    float        duration;
+    uint32_t     duration;
     uint8_t     *data;
     size_t       len;
 } mp3_frame_info_t;
@@ -138,9 +138,8 @@ static size_t mp3_frame_decode(mp3_frame_info_t *info, uint8_t *data, size_t len
 
     CHECK_SIZE(sizeof(mp3_frame_t) + info->len);
 
-    info->data = data + sizeof(mp3_frame_t);
-
-    info->duration   = (float)info->len * 8 / info->bitrate;
+    info->data     = data + sizeof(mp3_frame_t);
+    info->duration = info->len * 8 * 1000000 / info->bitrate;
 
     return info->len;
 }
@@ -568,7 +567,7 @@ void mp3_info_dump(const mp3_info_t *info)
     printf("Album    %s\n",    info->album);
     printf("Track    %i/%i\n", info->track, info->nb_track);
     printf("Years    %i\n",    info->years);
-    printf("Duration %f\n",    info->duration);
+    printf("Duration %i\n",    (int)(info->duration / 1000000));
 }
 
 mp3_stream_t * mp3_stream_open(char *file)
@@ -600,7 +599,7 @@ mp3_stream_t * mp3_stream_init(mp3_stream_t *stream, char *file)
     stream->size       = stat.st_size;
     stream->data_size  = stat.st_size;
     stream->offset     = 0;
-    stream->pos        = 0.0;
+    stream->pos        = 0;
 
     frame_size = id3_v1_decode(NULL,
                                (uint8_t *)buf + stat.st_size - sizeof(id3_v1_t),
@@ -620,9 +619,9 @@ void mp3_stream_close(mp3_stream_t *stream)
     free(stream);
 }
 
-int mp3_stream_read(mp3_stream_t *stream, float pos, mp3_buffer_t *buf)
+int mp3_stream_read(mp3_stream_t *stream, uint64_t pos, mp3_buffer_t *buf)
 {
-    float                duration;
+    uint64_t             duration;
     int                  frame_size;
     mp3_frame_info_t     finfo;
     char                *begin;
@@ -634,7 +633,7 @@ int mp3_stream_read(mp3_stream_t *stream, float pos, mp3_buffer_t *buf)
        stream->offset == stream->data_size)
         return -1;
 
-    duration    = 0.0;
+    duration    = 0;
     begin       = stream->buf + stream->offset;
 
     while(stream->offset != stream->data_size && pos > stream->pos) {

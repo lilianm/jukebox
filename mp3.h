@@ -1,14 +1,16 @@
 #ifndef _MP3_H_
 #define _MP3_H_
 
+#include <stdint.h>
+
 typedef struct mp3_info_t {
     char                *title;
     char                *artist;
     char                *album;
-    int                  track;
-    int                  nb_track;
-    int                  years;
-    float                duration;
+    uint8_t              track;
+    uint8_t              nb_track;
+    uint16_t             years;
+    uint64_t             duration; // us
 } mp3_info_t;
 
 typedef struct mp3_stream_t {
@@ -18,13 +20,13 @@ typedef struct mp3_stream_t {
 
     size_t       data_size;
     size_t       offset;
-    float        pos;
+    uint64_t     pos;
 } mp3_stream_t;
 
 typedef struct mp3_buffer_t {
     char        *buf;
     size_t       size;
-    float        duration;
+    uint64_t     duration;
 } mp3_buffer_t;
 
 int mp3_info_decode(mp3_info_t *info, char *file);
@@ -39,6 +41,6 @@ mp3_stream_t * mp3_stream_init(mp3_stream_t *stream, char *file);
 
 void mp3_stream_close(mp3_stream_t *stream);
 
-int mp3_stream_read(mp3_stream_t *stream, float pos, mp3_buffer_t *buf);
+int mp3_stream_read(mp3_stream_t *stream, uint64_t pos, mp3_buffer_t *buf);
 
 #endif // _MP3_H_
