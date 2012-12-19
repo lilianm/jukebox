@@ -8,12 +8,14 @@
 #include "vector.h"
 #include "mp3.h"
 
-typedef struct stream {
-    int fd;
-} stream_t;
+typedef struct channel {
+    int              fd; // add fd vector
+    struct timeval   start;
+    mp3_stream_t    *stream;
+} channel_t;
 
 VECTOR_T(pollfd, struct pollfd);
-VECTOR_T(stream, stream_t);
+VECTOR_T(channel, channel_t);
 
 static char basic_reponse[] =
     "HTTP/1.1 200 OK\r\n"
@@ -21,24 +23,28 @@ static char basic_reponse[] =
     "Connection: Close\r\n"
     "\r\n";
 
+static inline int64_t diff_timeval(struct timeval *new, struct timeval *old)
+{
+    return ((int64_t)new->tv_sec - old->tv_sec) * 1000000 +
+        (new->tv_usec - old->tv_usec);
+}
+
 int main(int argc, char *argv[])
 {
-    int              port = 8080;
-    int              sck;
-    vector_pollfd_t *poll_sck;
-    struct pollfd   *v;
-    vector_stream_t *stream;
-    stream_t        *s;
-    char             buffer[1024];
-    int              ret;
-    struct timeval   next_tick;
-    struct timeval   now;
-    int              tick = 200000; // 200ms
-    int              diff;
-    float            pos = 0.0;
-    float            cur;
-    mp3_stream_t    *cur_stream;
-    mp3_buffer_t     cur_buf;
+    int               port = 8080;
+    int               sck;
+    vector_pollfd_t  *poll_sck;
+    struct pollfd    *v;
+    vector_channel_t *channel;
+    channel_t        *c;
+    char              buffer[1024];
+    int               ret;
+    struct timeval    next_tick;
+    struct timeval    now;
+    int               tick = 200000; // 200ms
+    int64_t           diff;
+    int64_t           pos;
+    mp3_buffer_t      cur_buf;
 
     gettimeofday(&next_tick, NULL);
 
@@ -46,8 +52,7 @@ int main(int argc, char *argv[])
     argv = argv;
 
     poll_sck   = vector_pollfd_new();
-    stream     = vector_stream_new();
-    cur_stream = mp3_stream_open("test.mp3");
+    channel    = vector_channel_new();
 
     sck = xlisten(port);
     if(sck == -1) {
@@ -62,48 +67,67 @@ int main(int argc, char *argv[])
 
     while(1) {
         gettimeofday(&now, NULL);
-        if(now.tv_sec > next_tick.tv_sec ||
-           (now.tv_sec == next_tick.tv_sec && now.tv_usec + 1000 >= next_tick.tv_usec)) {
-            cur  = pos;
-            pos += .200;
-            /* while(cur < pos) { */
-                ret = mp3_stream_read(cur_stream, pos, &cur_buf);
-                cur += cur_buf.duration;
-                if(cur < pos)
-                    printf("not enought %i\n", ret);
-                VECTOR_REVERSE_EACH(stream, s) {
+        diff = diff_timeval(&next_tick, &now);
+        if(diff < 0)
+            diff = 0;
+        if(diff < 1000) {
+            VECTOR_REVERSE_EACH(channel, c) {
+                int running = 1;
+                while(running) {
+                    if(c->stream == NULL) {
+                        // Get random song
+                        c->stream = mp3_stream_open("test.mp3");
+                    }
+                    pos = diff_timeval(&now, &c->start);
+                    ret = mp3_stream_read(c->stream, pos, &cur_buf);
+                    printf("read %li %i %li\n", pos, ret, c->stream->pos);
+//                cur += cur_buf.duration;
                     retry:
-                    ret = send(s->fd, cur_buf.buf, cur_buf.size, MSG_DONTWAIT | MSG_NOSIGNAL);
-                    if(ret != cur_buf.size) {
-                        printf("send diff %i %i\n", ret, cur_buf.size);
+                    ret = send(c->fd, cur_buf.buf, cur_buf.size, MSG_DONTWAIT | MSG_NOSIGNAL);
+                    if(ret != (signed)cur_buf.size) {
+                        printf("send diff %i %zi\n", ret, cur_buf.size);
                     }
                     if(ret == -1) {
                         if(errno == EINTR)
                             goto retry;
                         
+                        running = 0;
                         if(errno == EAGAIN ||
                            errno == EWOULDBLOCK ||
-                           errno == ENOBUFS)
+                           errno == ENOBUFS) {
                             continue;
+                        }
 
-                        vector_stream_delete(stream, s);
-                        printf("close %m\n", s->fd, ret);
+                        mp3_stream_close(c->stream);
+                        vector_channel_delete(channel, c);
+                        printf("close %m %i\n", c->fd);
                         continue;
                     }
-                    printf("tick %i %i\n", s->fd, ret);
+                    if((signed)c->stream->pos < pos) {
+                        printf("end\n");
+                        c->start.tv_sec  += c->stream->pos / 1000000;
+                        c->start.tv_usec += c->stream->pos % 1000000;
+                        if(c->start.tv_usec > 1000000) {
+                            c->start.tv_usec -= 1000000;
+                            c->start.tv_sec  += 1;
+                        }
+                        mp3_stream_close(c->stream);
+                        c->stream = NULL;
+                        continue;
+                    }
+                    break;
                 }
-            /* } */
+//                printf("tick %i %i\n", s->fd, ret);
+            }
             next_tick.tv_usec += tick;
             if(next_tick.tv_usec > 1000000) {
                 next_tick.tv_usec -= 1000000;
                 next_tick.tv_sec  += 1;
             }
+            diff = diff_timeval(&next_tick, &now);
         }
 
-        diff = ((next_tick.tv_sec - now.tv_sec) * 1000) +
-            ((next_tick.tv_usec - now.tv_usec) / 1000);
-
-        poll(VECTOR_GET_INDEX(poll_sck, 0), VECTOR_GET_LEN(poll_sck), diff);
+        poll(VECTOR_GET_INDEX(poll_sck, 0), VECTOR_GET_LEN(poll_sck), diff / 1000);
         VECTOR_REVERSE_EACH(poll_sck, v) {
             if(v->revents == 0)
                 continue;
@@ -112,14 +136,17 @@ int main(int argc, char *argv[])
                 sck = xaccept(v->fd, NULL);
                 printf("accept\n");
                 vector_pollfd_push(poll_sck, &((struct pollfd) {
-                            .fd      = sck,
+                                .fd      = sck,
                                 .events  = POLLIN,
                                 .revents = 0 }));
             } else {
                 ret = recv(v->fd, buffer, sizeof(buffer), 0);
                 if(ret != 0 && ret != -1) {
                     send(v->fd, basic_reponse, sizeof(basic_reponse) - 1, MSG_DONTWAIT);
-                    vector_stream_push(stream, &((stream_t) { .fd = v->fd }));
+                    vector_channel_push(channel, &((channel_t) {
+                                    .fd     = v->fd,
+                                    .start  = now,
+                                    .stream = NULL}));
                 }                    
                 vector_pollfd_delete(poll_sck, v);
             }
