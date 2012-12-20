@@ -2,6 +2,8 @@
 #include <stdlib.h>
 
 #include "db.h"
+#include "mp3.h"
+
 #include <string.h>
 
 sqlite3 *db = NULL;
@@ -50,6 +52,38 @@ void db_scan_song(scan_fn fn, void *data)
             break;
         }
     }
+}
+
+mp3_stream_t * db_get_song(void)
+{
+    const unsigned char  *dst;
+    mp3_stream_t         *stream;
+    sqlite3_stmt         *stmt    = NULL;
+    static const char     req[]   = "SELECT dst FROM library WHERE 1 ORDER BY RANDOM() LIMIT 1";
+    int                   running = 1;
+
+    sqlite3_prepare_v2(db, req, sizeof(req), &stmt, NULL);
+
+    while(running) {
+        int s;
+        s = sqlite3_step(stmt);
+        switch(s) {
+        case SQLITE_ROW:
+            dst = sqlite3_column_text(stmt, 0);
+            stream = mp3_stream_open((char*)dst);
+            if(stream != NULL) {
+                running = 0;
+            }
+            break;
+
+        case SQLITE_DONE:
+        default:
+            running = 0;
+            break;
+        }
+    }
+    sqlite3_finalize(stmt);
+    return stream;
 }
 
 void db_new_song(song_t *song)

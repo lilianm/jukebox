@@ -1,6 +1,8 @@
 #ifndef __DB_H__
 #define __DB_H__
 
+#include "mp3.h"
+
 typedef enum song_status_t {
     SONG_STATUS_BAD_TAG       = 2,
     SONG_STATUS_ENCODING_FAIL = 4,
@@ -31,5 +33,7 @@ void db_new_song(song_t *song);
 typedef void (*scan_fn)(const unsigned char *src, time_t mtime, void *data);
 
 void db_scan_song(scan_fn fn, void *data);
+
+mp3_stream_t * db_get_song(void);
 
 #endif /* __DB_H__ */

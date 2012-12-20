@@ -53,7 +53,7 @@ static inline string_t string_init_static(char *txt)
 
     len = strlen(txt);
 
-    return string_init_full(txt, len, len, STRING_ALLOC_STATIC);
+    return string_init_full(txt, len, len + 1, STRING_ALLOC_STATIC);
 }
 
 static inline string_t string_init(char *txt)
@@ -62,7 +62,7 @@ static inline string_t string_init(char *txt)
 
     len = strlen(txt);
 
-    return string_init_full(txt, len, len, STRING_ALLOC_DYNAMIC);
+    return string_init_full(txt, len, len + 1, STRING_ALLOC_DYNAMIC);
 }
 
 static inline string_t string_new(void)

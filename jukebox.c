@@ -10,6 +10,8 @@
 #include "mtimer.h"
 #include "time_tool.h"
 #include "encoder.h"
+#include "db.h"
+#include "display.h"
 
 typedef struct channel {
     int              fd; // add fd vector
@@ -43,7 +45,7 @@ void update_channel(mtimer_t *t, const struct timeval *now, void *data)
         while(running) {
             if(c->stream == NULL) {
                 // Get random song
-                c->stream = mp3_stream_open("test.mp3");
+                c->stream = db_get_song();
             }
             pos = timeval_diff(now, &c->start);
             ret = mp3_stream_read(c->stream, pos, &cur_buf);
@@ -121,6 +123,8 @@ int main(int argc, char *argv[])
 
     mtimer_add(200,   MTIMER_KIND_PERIODIC, update_channel, channel);
     mtimer_add(30000, MTIMER_KIND_PERIODIC, (mtimer_cb_f)encoder_scan, NULL);
+
+    print_log(string_init_static("Jukebox started"));
 
     while(1) {
         gettimeofday(&now, NULL);
