@@ -15,7 +15,7 @@ install: all
 httpd: sck.o http.o
 	${LD} -o $@ $+ ${LDFLAGS_HTTP}
 
-jukebox: jukebox.o sck.o mp3.o
+jukebox: jukebox.o sck.o mp3.o mtimer.o
 	${LD} -o $@ $+ ${LDFLAGS}
 
 encoder: encoder.o mp3.o thread_pool.o db.o mstring.o
