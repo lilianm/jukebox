@@ -9,6 +9,7 @@
 #include "mp3.h"
 #include "mtimer.h"
 #include "time_tool.h"
+#include "encoder.h"
 
 typedef struct channel {
     int              fd; // add fd vector
@@ -100,6 +101,10 @@ int main(int argc, char *argv[])
     argc = argc;
     argv = argv;
 
+    encoder_init("mp3", "encoded", 2);
+
+    encoder_scan();
+
     poll_sck   = vector_pollfd_new();
     channel    = vector_channel_new();
 
@@ -114,7 +119,8 @@ int main(int argc, char *argv[])
                 .events  = POLLIN,
                 .revents = 0 }));
 
-    mtimer_add(200, MTIMER_KIND_PERIODIC, update_channel, channel);
+    mtimer_add(200,   MTIMER_KIND_PERIODIC, update_channel, channel);
+    mtimer_add(30000, MTIMER_KIND_PERIODIC, (mtimer_cb_f)encoder_scan, NULL);
 
     while(1) {
         gettimeofday(&now, NULL);
