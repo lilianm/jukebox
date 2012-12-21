@@ -123,6 +123,16 @@ static inline string_t string_add_date(string_t str, char *format)
     return str;
 }
 
+static inline string_t string_add_format(string_t str, char *format, va_list ap)
+{
+    size_t    len;
+
+    len = vsnprintf(str.txt + str.len, str.size - str.len, format, ap);
+    str.len += len;
+
+    return str;
+}
+
 static inline void string_dump(string_t str)
 {
     printf("%.*s\n", str.len, str.txt);

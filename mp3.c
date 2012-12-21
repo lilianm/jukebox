@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -10,6 +9,7 @@
 #include <assert.h>
 
 #include "mp3.h"
+#include "display.h"
 
 enum charset {
     ISO_8859_1,
@@ -562,12 +562,12 @@ void mp3_info_free(mp3_info_t *info)
 
 void mp3_info_dump(const mp3_info_t *info)
 {
-    printf("Title    %s\n",    info->title);
-    printf("Artist   %s\n",    info->artist);
-    printf("Album    %s\n",    info->album);
-    printf("Track    %i/%i\n", info->track, info->nb_track);
-    printf("Years    %i\n",    info->years);
-    printf("Duration %i\n",    (int)(info->duration / 1000000));
+    print_debug("Title    %s\n",    info->title);
+    print_debug("Artist   %s\n",    info->artist);
+    print_debug("Album    %s\n",    info->album);
+    print_debug("Track    %i/%i\n", info->track, info->nb_track);
+    print_debug("Years    %i\n",    info->years);
+    print_debug("Duration %i\n",    (int)(info->duration / 1000000));
 }
 
 mp3_stream_t * mp3_stream_open(char *file)
@@ -583,6 +583,8 @@ mp3_stream_t * mp3_stream_init(mp3_stream_t *stream, char *file)
     int                  frame_size;
 
     assert(file);
+
+    print_debug("Mp3 stream open %s", file);
 
     fd = open(file, 0);
     if(fd == -1)

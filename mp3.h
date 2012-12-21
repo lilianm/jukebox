@@ -2,6 +2,7 @@
 #define _MP3_H_
 
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef struct mp3_info_t {
     char                *title;
