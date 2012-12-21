@@ -562,12 +562,12 @@ void mp3_info_free(mp3_info_t *info)
 
 void mp3_info_dump(const mp3_info_t *info)
 {
-    print_debug("Title    %s\n",    info->title);
-    print_debug("Artist   %s\n",    info->artist);
-    print_debug("Album    %s\n",    info->album);
-    print_debug("Track    %i/%i\n", info->track, info->nb_track);
-    print_debug("Years    %i\n",    info->years);
-    print_debug("Duration %i\n",    (int)(info->duration / 1000000));
+    print_debug("Title    %s",    info->title);
+    print_debug("Artist   %s",    info->artist);
+    print_debug("Album    %s",    info->album);
+    print_debug("Track    %i/%i", info->track, info->nb_track);
+    print_debug("Years    %i",    info->years);
+    print_debug("Duration %i",    (int)(info->duration / 1000000));
 }
 
 mp3_stream_t * mp3_stream_open(char *file)

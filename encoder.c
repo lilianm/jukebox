@@ -54,17 +54,17 @@ void encode_th(void *data)
     
     switch(ret) {
     case -1:
-        print_warning("Skip %s -> %s\n", enc->src, enc->dst);
+        print_warning("Skip %s -> %s", enc->src, enc->dst);
         mp3_info_free(&info);
         break;
     case -2:
-        print_warning("Bad tag %s -> %s\n", enc->src, enc->dst);
+        print_warning("Bad tag %s -> %s", enc->src, enc->dst);
         song.status = SONG_STATUS_BAD_TAG;
         db_new_song(&song);
         mp3_info_free(&info);
         break;
     default:
-        print_log("Encode %s -> %s\n", enc->src, enc->dst);
+        print_log("Encode %s -> %s", enc->src, enc->dst);
         mp3_info_dump(&info);
         break;
     }
