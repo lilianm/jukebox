@@ -34,7 +34,7 @@ void db_scan_song(scan_fn fn, void *data)
     static const char     req[]   = "SELECT src, mtime FROM library WHERE 1";
     int                   running = 1;
 
-    sqlite3_prepare_v2(db, req, sizeof(req), &stmt, NULL);
+    while(sqlite3_prepare_v2(db, req, sizeof(req), &stmt, NULL) < 0);
 
     while(running) {
         int s;
@@ -62,7 +62,7 @@ mp3_stream_t * db_get_song(void)
     static const char     req[]   = "SELECT dst FROM library WHERE 1 ORDER BY RANDOM() LIMIT 1";
     int                   running = 1;
 
-    sqlite3_prepare_v2(db, req, sizeof(req), &stmt, NULL);
+    while(sqlite3_prepare_v2(db, req, sizeof(req), &stmt, NULL) < 0);
 
     while(running) {
         int s;

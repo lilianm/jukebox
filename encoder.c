@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -12,7 +11,8 @@
 #include "thread_pool.h"
 #include "db.h"
 #include "mstring.h"
-
+#include "mtimer.h"
+#include "display.h"
 
 typedef struct encode_file_t {
     char   *src;
@@ -54,17 +54,17 @@ void encode_th(void *data)
     
     switch(ret) {
     case -1:
-        printf("Skip %s -> %s\n", enc->src, enc->dst);
+        print_warning("Skip %s -> %s\n", enc->src, enc->dst);
         mp3_info_free(&info);
         break;
     case -2:
-        printf("Bad tag %s -> %s\n", enc->src, enc->dst);
+        print_warning("Bad tag %s -> %s\n", enc->src, enc->dst);
         song.status = SONG_STATUS_BAD_TAG;
         db_new_song(&song);
         mp3_info_free(&info);
         break;
     default:
-        printf("Encode %s -> %s\n", enc->src, enc->dst);
+        print_log("Encode %s -> %s\n", enc->src, enc->dst);
         mp3_info_dump(&info);
         break;
     }
@@ -175,20 +175,6 @@ vector_inode_cache_t        inode_cache;
 string_t                    srcdir;
 string_t                    dstdir;
 
-void encoder_init(char *src, char *dst, int nb_thread)
-{
-    db_init();
-
-    srcdir = string_dup(string_init_static(src));
-    dstdir = string_dup(string_init_static(dst));
-    
-    vector_inode_cache_init(&inode_cache);
-
-    db_scan_song(scan, &inode_cache);
-
-    pool = thread_pool_new(nb_thread);
-}
-
 int encoder_scan(void)
 {
     DIR                        *dp; 
@@ -197,6 +183,8 @@ int encoder_scan(void)
     time_t                      cur_time;
 
     int                         scan_time    = 30; // 30s
+
+    print_debug("Encoder: scan new file");
 
     cur_time = time(NULL);
 
@@ -252,6 +240,24 @@ int encoder_scan(void)
     }
     closedir(dp);
 
+    print_debug("Encoder: scan end");
+
     return 0;
 }
  
+
+void encoder_init(char *src, char *dst, int nb_thread)
+{
+    db_init();
+
+    srcdir = string_dup(string_init_static(src));
+    dstdir = string_dup(string_init_static(dst));
+    
+    vector_inode_cache_init(&inode_cache);
+
+    db_scan_song(scan, &inode_cache);
+
+    pool = thread_pool_new(nb_thread);
+
+    mtimer_add(30000, MTIMER_KIND_PERIODIC, (mtimer_cb_f)encoder_scan, NULL);
+}

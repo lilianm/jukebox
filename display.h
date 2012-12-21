@@ -5,12 +5,12 @@
 
 string_t dump_log();
 
-int  print_log(string_t txt);
+int  print_log(char *txt, ...);
 
-int  print_warning(string_t txt);
+int  print_warning(char *txt, ...);
 
-int  print_error(string_t txt);
+int  print_error(char *txt, ...);
 
-int  print_debug(string_t txt);
+int  print_debug(char *txt, ...);
 
 #endif /* __DISPLAY_H__ */

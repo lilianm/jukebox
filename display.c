@@ -3,6 +3,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "display.h"
 #include "mstring.h"
 
 #define MAX_STORAGE_TRACE 16
@@ -38,68 +39,95 @@ string_t dump_log(void)
     return ret;
 }
 
-int print_log(string_t txt)
+int print_log(char *txt, ...)
 {
     char     buffer[1024];
     string_t str;
+    va_list  ap;
+
+    va_start(ap, txt);
 
     str = string_init_full(buffer, 0, sizeof(buffer), STRING_ALLOC_STATIC);
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[32minfo\033[0m] "));
-    str = string_concat(str, txt);
+    str = string_add_format(str, txt, ap);
     string_dump(str);
     save_trace(str);
+
     string_clean(&str);
+    va_end(ap);
 
     return 0;
 }
 
-int print_warning(string_t txt)
+int print_warning(char *txt, ...)
 {
     char     buffer[1024];
     string_t str;
+
+    va_list  ap;
+
+    va_start(ap, txt);
 
     str = string_init_full(buffer, 0, sizeof(buffer), STRING_ALLOC_STATIC);
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[33mwarning\033[0m] "));
-    str = string_concat(str, txt);
+    str = string_add_format(str, txt, ap);
     string_dump(str);
     save_trace(str);
+
     string_clean(&str);
+    va_end(ap);
 
     return 0;
 }
-int print_error(string_t txt)
+
+int print_error(char *txt, ...)
 {
     char     buffer[1024];
     string_t str;
+
+    va_list  ap;
+
+    va_start(ap, txt);
 
     str = string_init_full(buffer, 0, sizeof(buffer), STRING_ALLOC_STATIC);
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[31merror\033[0m] "));
-    str = string_concat(str, txt);
+    str = string_add_format(str, txt, ap);
     string_dump(str);
     save_trace(str);
+
     string_clean(&str);
+    va_end(ap);
 
     return 0;
 }
 
-int print_debug(string_t txt)
+int print_debug(char *txt, ...)
 {
     char     buffer[1024];
     string_t str;
+
+    va_list  ap;
+
+    va_start(ap, txt);
 
     str = string_init_full(buffer, 0, sizeof(buffer), STRING_ALLOC_STATIC);
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[32mdebug\033[0m] "));
-    str = string_concat(str, txt);
+    str = string_add_format(str, txt, ap);
+#ifdef DEBUG
+    string_dump(str);
+#endif /* DEBUG */        
     save_trace(str);
+
     string_clean(&str);
+    va_end(ap);
 
     return 0;
 }
