@@ -97,16 +97,17 @@ static int vector_##name##_delete(vector_##name##_t *v, type *d)        \
     idx = d - v->data;                                                  \
                                                                         \
     --v->len;                                                           \
-    if(v->len == idx)                                                   \
+    if(v->offset + v->len == idx)                                       \
         return 0;                                                       \
-    if(idx == 0) {                                                      \
+    if(idx == v->offset) {                                              \
         v->offset++;                                                    \
         if(v->len == 0)                                                 \
             v->offset = 0;                                              \
         return 0;                                                       \
     }                                                                   \
                                                                         \
-    memmove(&v->data[idx], &v->data[idx + 1], v->len - idx);            \
+    memmove(&v->data[idx], &v->data[idx + 1],                           \
+            (v->len + v->offset - idx) * sizeof(type));                 \
                                                                         \
     return 0;                                                           \
 }                                                                       \
