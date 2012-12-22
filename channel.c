@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include "channel.h"
 #include "mtimer.h"
@@ -40,6 +41,13 @@ static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
             }
             pos = timeval_diff(now, &c->start);
             ret = mp3_stream_read(c->stream, pos, &cur_buf);
+            if(ret == -1) {
+                print_error("Error on reading song fd=%i: %m", c->fd);
+                mp3_stream_close(c->stream);
+                c->stream = NULL;
+                continue;
+            }
+
             retry:
             ret = send(c->fd, cur_buf.buf, cur_buf.size, MSG_DONTWAIT | MSG_NOSIGNAL);
             if(ret == -1) {
@@ -54,11 +62,12 @@ static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
                 }
 
                 mp3_stream_close(c->stream);
-                vector_channel_delete(channel, c);
                 print_debug("Close connection fd=%i: %m", c->fd);
+                vector_channel_delete(channel, c);
+                close(c->fd);
                 continue;
             }
-            if((signed)c->stream->pos < pos) {
+            if(c->stream->pos == c->stream->data_size) {
                 print_debug("End of Song fd=%i: %m", c->fd);
                 timeval_add_usec(&c->start, c->stream->pos);
                 mp3_stream_close(c->stream);
