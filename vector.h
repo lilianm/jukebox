@@ -8,7 +8,7 @@
     for(i = &v->data[v->offset]; i != &v->data[v->offset + v->len]; ++i)
 
 #define VECTOR_REVERSE_EACH(v, i)                                       \
-    for(i = &v->data[v->offset + v->len]; i-- != &v->data[v->offset]; )
+    for(i = &v->data[v->offset + v->len]; i-- > &v->data[v->offset]; )
 
 #define VECTOR_GET_INDEX(v, i)                                          \
     (&(v)->data[v->offset + (i)])
