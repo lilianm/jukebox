@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #define VECTOR_EACH(v, i)                                               \
     for(i = &v->data[v->offset]; i != &v->data[v->offset + v->len]; ++i)
@@ -24,6 +25,13 @@ typedef struct vector_##name {                                          \
     unsigned int  len;                                                  \
     unsigned int  size;                                                 \
 } vector_##name##_t;                                                    \
+                                                                        \
+__attribute__((used))                                                   \
+static void vector_##name##_dump(vector_##name##_t *v)                  \
+{                                                                       \
+    printf("Vector %p data=%p len=%i offset=%i size=%i\n", v,           \
+           v->data, v->len, v->offset, v->size);                        \
+}                                                                       \
                                                                         \
 __attribute__((used))                                                   \
 static void vector_##name##_init(vector_##name##_t *v)                  \
