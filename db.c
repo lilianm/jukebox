@@ -57,9 +57,9 @@ void db_scan_song(scan_fn fn, void *data)
 mp3_stream_t * db_get_song(void)
 {
     const unsigned char  *dst;
-    mp3_stream_t         *stream;
+    mp3_stream_t         *stream  = NULL;
     sqlite3_stmt         *stmt    = NULL;
-    static const char     req[]   = "SELECT dst FROM library WHERE 1 ORDER BY RANDOM() LIMIT 1";
+    static const char     req[]   = "SELECT dst FROM library WHERE status=5 ORDER BY RANDOM() LIMIT 1";
     int                   running = 1;
 
     do {
