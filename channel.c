@@ -58,6 +58,7 @@ static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
                 if(errno == EAGAIN ||
                    errno == EWOULDBLOCK ||
                    errno == ENOBUFS) {
+                    print_debug("Skip %i bytes fd=%i", cur_buf.size, c->fd);
                     continue;
                 }
 
@@ -67,8 +68,8 @@ static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
                 close(c->fd);
                 continue;
             }
-            if(c->stream->pos == c->stream->data_size) {
-                print_debug("End of Song fd=%i: %m", c->fd);
+            if(c->stream->offset == c->stream->data_size) {
+                print_debug("End of Song fd=%i", c->fd);
                 timeval_add_usec(&c->start, c->stream->pos);
                 mp3_stream_close(c->stream);
                 c->stream = NULL;
