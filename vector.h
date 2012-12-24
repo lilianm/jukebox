@@ -11,8 +11,11 @@
 #define VECTOR_REVERSE_EACH(v, i)                                       \
     for(i = &v->data[v->offset + v->len]; i-- > &v->data[v->offset]; )
 
-#define VECTOR_GET_INDEX(v, i)                                          \
-    (&(v)->data[v->offset + (i)])
+#define VECTOR_GET_INDEX(v, e)                                          \
+    ((e - (v)->data) - (v)->offset)
+
+#define VECTOR_GET_BY_INDEX(v, i)                                       \
+    (&(v)->data[(v)->offset + (i)])
 
 #define VECTOR_GET_LEN(v)                                               \
     ((v)->len)
@@ -87,29 +90,32 @@ static int vector_##name##_pop(vector_##name##_t *v, type *d)           \
 }                                                                       \
                                                                         \
 __attribute__((used))                                                   \
-static int vector_##name##_delete(vector_##name##_t *v, type *d)        \
+static int vector_##name##_delete_by_index(vector_##name##_t *v, unsigned int i) \
 {                                                                       \
-    unsigned int idx;                                                   \
-                                                                        \
-    if(d < v->data + v->offset || d >= v->data + v->offset + v->len)    \
+    if(i < v->len)                                                      \
         return -1;                                                      \
                                                                         \
-    idx = d - v->data;                                                  \
-                                                                        \
     --v->len;                                                           \
-    if(v->offset + v->len == idx)                                       \
+    if(i == v->len)                                                     \
         return 0;                                                       \
-    if(idx == v->offset) {                                              \
+    if(i == 0) {                                                        \
         v->offset++;                                                    \
         if(v->len == 0)                                                 \
             v->offset = 0;                                              \
         return 0;                                                       \
     }                                                                   \
                                                                         \
-    memmove(&v->data[idx], &v->data[idx + 1],                           \
-            (v->len + v->offset - idx) * sizeof(type));                 \
+    memmove(&v->data[v->offset + i], &v->data[v->offset + i + 1],       \
+            (v->len - i) * sizeof(type));                               \
                                                                         \
     return 0;                                                           \
+}                                                                       \
+                                                                        \
+__attribute__((used))                                                   \
+static int vector_##name##_delete(vector_##name##_t *v, type *d)        \
+{                                                                       \
+    return vector_##name##_delete_by_index(v,                           \
+                                           (d  - v->data) - v->offset); \
 }                                                                       \
                                                                         \
 __attribute__((used))                                                   \
