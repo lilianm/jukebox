@@ -92,7 +92,7 @@ static int vector_##name##_pop(vector_##name##_t *v, type *d)           \
 __attribute__((used))                                                   \
 static int vector_##name##_delete_by_index(vector_##name##_t *v, unsigned int i) \
 {                                                                       \
-    if(i < v->len)                                                      \
+    if(i >= v->len)                                                     \
         return -1;                                                      \
                                                                         \
     --v->len;                                                           \
