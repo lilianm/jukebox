@@ -4,13 +4,11 @@
 #include <errno.h>
 
 #include "sck.h"
-#include "vector.h"
-#include "mtimer.h"
 #include "encoder.h"
 #include "display.h"
 #include "channel.h"
+#include "event.h"
 
-VECTOR_T(pollfd, struct pollfd);
 
 static char basic_reponse[] =
     "HTTP/1.1 200 OK\r\n"
@@ -18,20 +16,34 @@ static char basic_reponse[] =
     "Connection: Close\r\n"
     "\r\n";
 
+static void on_http_data(io_event_t *ev, int sck, void *data)
+{
+    char buffer[1024];
+    int  ret;
+
+    data = data;
+
+    ret = recv(sck, buffer, sizeof(buffer), 0);
+    if(ret != 0 && ret != -1) {
+        send(sck, basic_reponse, sizeof(basic_reponse) - 1, MSG_DONTWAIT);
+        channel_create(sck);
+    }
+    event_delete(ev);
+}
+
+static void on_http_server(io_event_t *ev, int sck,
+                           struct sockaddr_in *addr, void *data)
+{
+    ev   = ev;
+    addr = addr;
+    data = data;
+
+    event_add_client(sck, on_http_data, NULL);
+}
 
 int main(int argc, char *argv[])
 {
-    int               port = 8080;
-    int               sck;
-    vector_pollfd_t  *poll_sck;
-    struct pollfd    *v;
-    char              buffer[1024];
-    int               ret;
-    struct timeval    next_tick;
-    struct timeval    now;
-    int64_t           diff;
-
-    gettimeofday(&next_tick, NULL);
+    int port = 8080;
 
     argc = argc;
     argv = argv;
@@ -39,51 +51,16 @@ int main(int argc, char *argv[])
     encoder_init("mp3", "encoded", 2);
     channel_init();
     encoder_scan();
+    event_init();
 
-    poll_sck   = vector_pollfd_new();
-
-    sck = xlisten(port);
-    if(sck == -1) {
+    if(event_add_server(port, on_http_server, NULL) == NULL) {
         print_error("Can't listen port %i: %m", port);
         return -1;
     }
 
-    vector_pollfd_push(poll_sck, &((struct pollfd) {
-                .fd      = sck,
-                .events  = POLLIN,
-                .revents = 0 }));
-
     print_log("Jukebox started");
 
-    while(1) {
-        gettimeofday(&now, NULL);
+    event_loop();
 
-        diff = mtimer_manage(&now);
-
-        poll(VECTOR_GET_INDEX(poll_sck, 0), VECTOR_GET_LEN(poll_sck), diff / 1000);
-        VECTOR_REVERSE_EACH(poll_sck, v) {
-            if(v->revents == 0)
-                continue;
-
-            if(v == VECTOR_GET_INDEX(poll_sck, 0)) {
-                sck = xaccept(v->fd, NULL);
-                print_debug("New connection fd=%i", sck);
-
-                vector_pollfd_push(poll_sck, &((struct pollfd) {
-                                .fd      = sck,
-                                .events  = POLLIN,
-                                .revents = 0 }));
-            } else {
-                ret = recv(v->fd, buffer, sizeof(buffer), 0);
-                if(ret != 0 && ret != -1) {
-                    send(v->fd, basic_reponse, sizeof(basic_reponse) - 1, MSG_DONTWAIT);
-                    channel_create(v->fd);
-                }                    
-                vector_pollfd_delete(poll_sck, v);
-            }
-            
-            v->revents = 0;
-        }
-    }
     return 0;
 }
