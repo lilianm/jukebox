@@ -3,7 +3,6 @@
 #include <sys/time.h>
 #include <errno.h>
 
-#include "sck.h"
 #include "encoder.h"
 #include "display.h"
 #include "channel.h"
