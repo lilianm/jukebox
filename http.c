@@ -1,10 +1,22 @@
-#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <unistd.h>
+#include <glib.h>
 
+#include "http.h"
 #include "stream.h"
-#include "sck.h"
+#include "event.h"
 #include "vector.h"
+#include "display.h"
 
-#define PORT 8080
+#define CRLF "\r\n"
+
+struct http_node {
+    char                *name;
+    GHashTable          *child;
+    http_node_callback   callback;
+    void                *data;
+};
 
 typedef struct http_option_t {
     stream_t    name;
@@ -14,15 +26,18 @@ typedef struct http_option_t {
 VECTOR_T(option, http_option_t);
 VECTOR_T(line, stream_t);
 
-typedef struct http_request_t {
-    stream_t            methode;
+struct http_request {
+    io_event_t         *event;
+    http_node_t        *root;
+
+    stream_t            method;
     stream_t            uri;
     vector_option_t     options;
-    char                header[1024*1024*64];
+    char                header[64*1024];
     int                 header_length;
     int                 content_length;
     void*               data;
-} http_request_t;
+};
 
 void http_request_init(http_request_t *hr)
 {
@@ -30,12 +45,23 @@ void http_request_init(http_request_t *hr)
     hr->header_length = 0;
 }
 
+http_request_t * http_request_new(void)
+{
+    http_request_t *hr;
+
+    hr = (http_request_t *) malloc(sizeof(http_request_t));
+
+    http_request_init(hr);
+
+    return hr;
+}
+
 void http_request_line_decode(http_request_t *hr, stream_t *line)
 {
     assert(hr);
     assert(line);
 
-    stream_find_chr(line, ' ', &hr->methode);
+    stream_find_chr(line, ' ', &hr->method);
     stream_skip(line, 1);
     stream_find_chr(line, ' ', &hr->uri);
     stream_skip(line, 1);
@@ -74,6 +100,206 @@ void http_options_decode(http_request_t *hr, stream_t *opts, int n)
     }
 }
 
+static gboolean http_str_equal(gconstpointer v1, gconstpointer v2)
+{
+    return strcmp(v1, v2) == 0;
+}
+
+static guint    http_str_hash(gconstpointer v)
+{
+    guint        hash = 5381;
+    const char  *text = v;
+
+    for(; *text; text++) {
+        hash *= 33;
+        hash += *text;
+    }
+
+    return hash;
+}
+
+struct http_node * http_node_search(struct http_node *n, const char *path, const char **remaining)
+{
+    char                *name;
+    size_t               name_size;
+    struct http_node    *next;
+    const char          *save_path;
+
+    assert(n);
+    assert(path);
+    assert(remaining);
+    assert(*remaining);
+
+    save_path = path;
+
+    while(*path && *path != '/')
+        path++;
+
+    if(*path == 0) {
+        *remaining = path;
+        return n;
+    }
+
+    *remaining = strchrnul(path, '/');
+
+    if(*remaining == 0) {
+        next = g_hash_table_lookup(n->child, path);
+        return next;
+    }
+
+    name_size = *remaining - path;
+    name      = alloca(name_size + 1);
+    memcpy(name, path, name_size);
+    name[name_size] = 0;
+
+    next = g_hash_table_lookup(n->child, name);
+    if(next)
+        return http_node_search(next, *remaining, remaining);
+    *remaining = save_path;
+    return n;
+}
+
+struct http_node * http_node_search_callback(struct http_node *n, const char *path, size_t len, const char **remaining, size_t *remaining_len)
+{
+    char                *name;
+    size_t               name_size;
+    struct http_node    *next;
+    const char          *save_path;
+    size_t               save_len;
+    const char          *end;
+
+    assert(n);
+    assert(path);
+    assert(remaining);
+    assert(*remaining);
+
+    end       = path + len;
+    save_path = path;
+    save_len  = len;
+
+    while(*path && *path == '/') {
+        path++;
+        len--;
+    }
+
+    if(len == 0) {
+        *remaining     = path;
+        *remaining_len = len;
+        if(n->callback)
+            return n;
+        return NULL;
+    }
+
+    *remaining = memchr(path, '/', len);
+
+    if(remaining) {
+        *remaining_len = end - *remaining;
+        name_size      = *remaining - path;
+        name           = alloca(name_size + 1);
+        memcpy(name, path, name_size);
+        name[name_size] = 0;
+
+        next = g_hash_table_lookup(n->child, name);
+        if(next)
+            next = http_node_search_callback(next, *remaining, *remaining_len,
+                                             remaining, remaining_len);
+        if(next)
+            return next;
+    }
+
+    *remaining     = save_path;
+    *remaining_len = save_len;
+    if(n->callback)
+        return n;
+    return NULL;
+}
+
+static struct http_node * http_node_malloc(const char *name, size_t len,
+                                           http_node_callback cb, void *data)
+{
+    struct http_node *n;
+
+    n = (struct http_node *) malloc(sizeof(struct http_node));
+    n->child           = g_hash_table_new(http_str_hash, http_str_equal);
+    n->name            = NULL;
+    if(name) {
+        n->name            = malloc(len + 1);
+        memcpy(n->name, name, len);
+        n->name[len]       = 0;
+    }
+    n->data            = data;
+    n->callback        = cb;
+
+    return n;
+}
+
+
+static struct http_node * http_node_create_path(struct http_node *n, const char *path)
+{
+    char                *remaining;
+    size_t               name_size;
+    struct http_node    *c;
+
+    assert(n);
+    assert(path);
+
+    while(*path) {
+        while(*path && *path == '/')
+            path++;
+        remaining = strchrnul(path, '/');
+        name_size = remaining - path;
+        
+        c = http_node_malloc(path, name_size, NULL, NULL);
+
+        g_hash_table_insert(n->child, c->name, c);
+
+        n    = c;
+        path = remaining;
+    }
+
+    return n;
+}
+
+struct http_node * http_node_new(struct http_node *root, char *path, http_node_callback cb, void *data)
+{
+    struct http_node    *n;
+    const char          *remaining;
+
+    assert(!((root == NULL) ^ (path == NULL)));
+
+    if(root == NULL)
+        return http_node_malloc(NULL, 0, cb, data);
+
+    n = http_node_search(root, path, &remaining);
+    if(remaining)
+        n = http_node_create_path(n, remaining);
+
+    n->callback = cb;
+    n->data     = data;
+
+    return n;
+}
+
+struct http_server
+{
+    io_event_t         *event;
+    http_node_t        *root;
+};
+
+void http_server_init(http_server_t *hs, io_event_t *ev, http_node_t *root)
+{
+    hs->event = ev;
+    hs->root  = root;
+}
+
+__attribute__((unused)) static char not_found_reponse[] =
+    "HTTP/1.1 404 Not found" CRLF
+    "Content-Type: text/html" CRLF
+    "Content-Length: 85"
+    "Connection: Keep-Alive" CRLF
+    CRLF CRLF
+    "<html><head><title>404 Not found</title></head><body><H1>Not found</H1></body></head>";
+
 int http_header_decode(http_request_t *hr)
 {
     vector_line_t       opt;
@@ -107,87 +333,84 @@ int http_header_decode(http_request_t *hr)
         hr->content_length = atoi(content_length.data);
     }
 
-    assert(stream_len(&header) == 0);
+    const char            *remaining;
+    http_node_t           *root           = hr->root;
+    struct http_node      *current;
+    size_t                 remaining_size;
+    current = http_node_search_callback(root, hr->uri.data, stream_len(&hr->uri),
+                                        &remaining, &remaining_size);
+    if(current) {
+        current->callback(hr, current->data, remaining, remaining_size);
+    } else {
+    }
+
     return 0;
 }
 
-http_request_t hr;
 
-typedef enum http_page_kind_t {
-    HTTP_PAGE_KIND_MEM,
-    HTTP_PAGE_KIND_FILE,
-    HTTP_PAGE_KIND_FUNC,
-} http_page_kind_t;
-
-typedef struct http_page_mem_t
+static void on_http_client_data(io_event_t *ev, int sck, void *data)
 {
-    void *data;
-    int   size;
-} http_page_mem_t;
+    int                 ret;
+    http_request_t     *hr;
 
-typedef struct http_page_file_t
-{
-    void *data;
-    int   size;
-    int   fd;
-} http_page_file_t;
+    hr = (http_request_t *)data;
 
-typedef union http_page_data_t
-{
-    http_page_mem_t  mem;
-    http_page_file_t file;
-} http_page_data_t;
+    retry:
+    ret = recv(sck, hr->header + hr->header_length,
+               sizeof(hr->header) - hr->header_length, MSG_NOSIGNAL);
+    if(ret == -1) {
+        if(errno == EINTR)
+            goto retry;
 
-typedef struct http_page_t
-{
-    char*               url;
-    char*               content_type;
-    http_page_kind_t    kind;    
-} http_page_t;
+        print_debug("HTTP Connection close: %m");
+        event_delete(ev);
+        close(sck);
+        return;
+    }
+    
+    hr->header_length += ret;
+    if(http_header_decode(hr) != 0) {
+        if(hr->header_length == sizeof(hr->header)) {
+            print_error("HTTP Header size too big");
+            event_delete(ev);
+            close(sck);
+        }
+        return;
+    }
 
-VECTOR_T(page, http_page_t);
-
-typedef struct http_server_t
-{
-    int                 srv;
-    int                 client;
-
-    vector_page_t       pages;
-    http_request_t      hr;    
-} http_server_t;
-
-void http_server_init(http_server_t *hs)
-{
-    hs->srv    = -1;
-    hs->client = -1;
-
-    vector_page_init(&hs->pages);
-    http_request_init(&hs->hr);
+//    send(sck, basic_reponse, sizeof(basic_reponse) - 1, MSG_DONTWAIT);
+    //channel_create(sck);
 }
 
-http_server_t * http_server_new(uint16_t port)
+static void on_http_new_connection(io_event_t *ev, int sck,
+                                   struct sockaddr_in *addr, void *data)
 {
-    http_server_t* hs;
-    struct sockaddr_in addr;
+    http_request_t *hr;
+    http_server_t  *hs;
+
+    (void) ev;
+    (void) addr;
+    hs   = (http_server_t *) data;
+
+    hr        = http_request_new();
+    hr->root  = hs->root;
+    hr->event = event_client_add(sck, hr);
+
+    event_client_set_on_read(hr->event, on_http_client_data);
+}
+
+http_server_t * http_server_new(uint16_t port, http_node_t *root)
+{
+    http_server_t *hs;
+    io_event_t    *ev;
 
     hs = (http_server_t*) malloc(sizeof(http_server_t));
+    ev = event_server_add(port, on_http_new_connection, hs);
+    if(root == NULL)
+        root = http_node_new(NULL, NULL, NULL, NULL);
 
-    http_server_init(hs);
-
-    hs->srv     = xlisten(port);
-    hs->client  = xaccept(hs->srv, &addr);
-
-    http_request_init(&hr);
-    hs->hr.header_length = recv(hs->client, hs->hr.header, sizeof(hs->hr.header), 0);
-    http_header_decode(&hs->hr);
+    http_server_init(hs, ev, root);
 
     return hs;
 }
 
-int main(void)
-{
-    http_server_new(PORT);
-
-    
-    return 0;
-}

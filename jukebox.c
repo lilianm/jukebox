@@ -7,6 +7,7 @@
 #include "display.h"
 #include "channel.h"
 #include "event.h"
+#include "http.h"
 
 
 static char basic_reponse[] =
@@ -59,6 +60,8 @@ int main(int argc, char *argv[])
         print_error("Can't listen port %i: %m", port);
         return -1;
     }
+
+    http_server_new(8084, NULL);
 
     print_log("Jukebox started");
 
