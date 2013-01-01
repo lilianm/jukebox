@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include "display.h"
-#include "mstring.h"
 
 #define MAX_STORAGE_TRACE 16
 
