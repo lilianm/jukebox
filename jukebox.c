@@ -33,11 +33,14 @@ static void on_http_data(io_event_t *ev, int sck, void *data)
 static void on_http_server(io_event_t *ev, int sck,
                            struct sockaddr_in *addr, void *data)
 {
+    io_event_t *client;
 
     (void) ev;
     (void) addr;
     (void) data;
-    event_add_client(sck, on_http_data, NULL);
+
+    client = event_client_add(sck, NULL);
+    event_client_set_on_read(client, on_http_data);
 }
 
 int main(int argc, char *argv[])
@@ -52,7 +55,7 @@ int main(int argc, char *argv[])
     encoder_scan();
     event_init();
 
-    if(event_add_server(port, on_http_server, NULL) == NULL) {
+    if(event_server_add(port, on_http_server, NULL) == NULL) {
         print_error("Can't listen port %i: %m", port);
         return -1;
     }

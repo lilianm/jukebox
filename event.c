@@ -1,5 +1,6 @@
 #include <poll.h>
 #include <arpa/inet.h>
+#include <assert.h>
 
 #include "event.h"
 #include "mtimer.h"
@@ -19,7 +20,8 @@ struct io_event {
             on_accept_f on_accept;
         } server;
         struct {
-            on_data_f on_data;
+            on_data_f on_read;
+            on_data_f on_write;
         } client;
     };
 };
@@ -31,13 +33,24 @@ VECTOR_T(event, io_event_t *);
 vector_pollfd_t  *poll_sck;
 vector_event_t   *events;
 
+void * event_get_data(io_event_t *ev)
+{
+    return ev->data;
+}
+
+void event_set_data(io_event_t *ev, void *data)
+{
+    ev->data = data;
+}
+
+
 void event_init(void)
 {
     poll_sck = vector_pollfd_new();
     events   = vector_event_new();
 }
 
-io_event_t * event_add_server(uint16_t port, on_accept_f on_accept, void *data)
+io_event_t * event_server_add(uint16_t port, on_accept_f on_accept, void *data)
 {
     io_event_t          *event;
     int                  s;
@@ -79,27 +92,107 @@ io_event_t * event_add_server(uint16_t port, on_accept_f on_accept, void *data)
     return event;
 }
 
-io_event_t * event_add_client(int sck, on_data_f on_data, void *data)
+io_event_t * event_client_add(int sck, void *data)
 {
     io_event_t          *event;
-
-    if(on_data == NULL)
-        return NULL;
 
     event = (io_event_t *) malloc(sizeof(io_event_t));
 
     event->kind             = IO_EVENT_KIND_SOCKET;
-    event->client.on_data   = on_data;
+    event->client.on_read   = NULL;
+    event->client.on_write  = NULL;
     event->data             = data;
 
     vector_pollfd_push(poll_sck, &((struct pollfd) {
                 .fd      = sck,
-                .events  = POLLIN,
+                .events  = 0,
                 .revents = 0 }));
 
     vector_event_push(events, &event);
 
     return event;
+}
+
+int event_client_set_on_read(io_event_t *ev, on_data_f on_read)
+{
+    int i;
+
+    assert(ev);
+    assert(ev->kind == IO_EVENT_KIND_SOCKET);
+
+    if(on_read  == NULL)
+        return -1;
+
+    if(ev->kind != IO_EVENT_KIND_SOCKET)
+        return -1;
+
+    i = VECTOR_GET_INDEX(events, &ev);
+
+    ev->client.on_read = on_read;
+
+    VECTOR_GET_BY_INDEX(poll_sck, i)->events |= POLLIN;
+
+    return 0;
+}
+
+int event_client_clr_on_read(io_event_t *ev)
+{
+    int i;
+
+    assert(ev);
+    assert(ev->kind == IO_EVENT_KIND_SOCKET);
+
+    if(ev->kind != IO_EVENT_KIND_SOCKET)
+        return -1;
+
+    i = VECTOR_GET_INDEX(events, &ev);
+
+    ev->client.on_read = NULL;
+
+    VECTOR_GET_BY_INDEX(poll_sck, i)->events &= ~POLLIN;
+
+    return 0;
+}
+
+int event_client_set_on_write(io_event_t *ev, on_data_f on_write)
+{
+    int i;
+
+    assert(ev);
+    assert(ev->kind == IO_EVENT_KIND_SOCKET);
+
+    if(on_write == NULL)
+        return -1;
+
+    if(ev->kind != IO_EVENT_KIND_SOCKET)
+        return -1;
+
+    i = VECTOR_GET_INDEX(events, &ev);
+
+    ev->client.on_write = on_write;
+
+    VECTOR_GET_BY_INDEX(poll_sck, i)->events |= POLLOUT;
+
+    return 0;
+}
+
+int event_client_clr_on_write(io_event_t *ev)
+{
+    int i;
+
+    assert(ev);
+    assert(ev->kind == IO_EVENT_KIND_SOCKET);
+
+    if(ev->kind != IO_EVENT_KIND_SOCKET)
+        return -1;
+
+    i = VECTOR_GET_INDEX(events, &ev);
+
+    ev->client.on_write = NULL;
+
+    VECTOR_GET_BY_INDEX(poll_sck, i)->events &= ~POLLIN;
+
+    return 0;
 }
 
 void event_delete(io_event_t *ev)
@@ -148,7 +241,10 @@ void event_loop(void)
                 }
                 break;
             case IO_EVENT_KIND_SOCKET:
-                e->client.on_data(e, sck, e->data);
+                if(v->revents & POLLIN)
+                    e->client.on_read(e, sck, e->data);
+                if(v->revents & POLLOUT)
+                    e->client.on_write(e, sck, e->data);
                 break;
             }
 
