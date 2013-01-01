@@ -20,7 +20,7 @@ static void on_http_data(io_event_t *ev, int sck, void *data)
     char buffer[1024];
     int  ret;
 
-    data = data;
+    (void) data;
 
     ret = recv(sck, buffer, sizeof(buffer), 0);
     if(ret != 0 && ret != -1) {
@@ -33,10 +33,10 @@ static void on_http_data(io_event_t *ev, int sck, void *data)
 static void on_http_server(io_event_t *ev, int sck,
                            struct sockaddr_in *addr, void *data)
 {
-    ev   = ev;
-    addr = addr;
-    data = data;
 
+    (void) ev;
+    (void) addr;
+    (void) data;
     event_add_client(sck, on_http_data, NULL);
 }
 
@@ -44,8 +44,8 @@ int main(int argc, char *argv[])
 {
     int port = 8080;
 
-    argc = argc;
-    argv = argv;
+    (void) argc;
+    (void) argv;
 
     encoder_init("mp3", "encoded", 2);
     channel_init();

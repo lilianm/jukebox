@@ -30,7 +30,7 @@ static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
 
     channel = (vector_channel_t *) data;
 
-    t = t;
+    (void) t;
 
     VECTOR_REVERSE_EACH(channel, c) {
         int running = 1;
