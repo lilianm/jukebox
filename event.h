@@ -43,10 +43,12 @@ int event_client_clr_on_disconnect(io_event_t *ev);
 
 void event_delete(io_event_t *ev);
 
-/* Get or set data */
+/* Manipulate event */
 
 void event_set_data(io_event_t *ev, void *data);
 
 void * event_get_data(io_event_t *ev);
+
+int event_get_fd(io_event_t *ev);
 
 #endif /* __EVENT_H__ */

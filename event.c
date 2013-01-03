@@ -240,6 +240,22 @@ int event_client_clr_on_disconnect(io_event_t *ev)
     return 0;
 }
 
+int event_get_fd(io_event_t *ev)
+{
+    int i;
+
+    assert(ev);
+    assert(ev->kind == IO_EVENT_KIND_SOCKET);
+
+    if(ev->kind != IO_EVENT_KIND_SOCKET &&
+       ev->kind != IO_EVENT_KIND_LISTEN)
+        return -1;
+
+    i = event_search(ev);
+
+    return VECTOR_GET_BY_INDEX(poll_sck, i)->fd;
+}
+
 void event_delete(io_event_t *ev)
 {
     io_event_t **v;
