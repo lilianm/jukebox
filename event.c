@@ -237,8 +237,10 @@ void event_loop(void)
         gettimeofday(&now, NULL);
 
         diff = mtimer_manage(&now);
+        if(diff != -1)
+            diff /= 1000;
 
-        poll(poll_sck->data, VECTOR_GET_LEN(poll_sck), diff / 1000);
+        poll(poll_sck->data, VECTOR_GET_LEN(poll_sck), diff);
         VECTOR_REVERSE_EACH(poll_sck, v) {
             if(v->revents == 0)
                 continue;            
