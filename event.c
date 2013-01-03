@@ -1,6 +1,7 @@
 #include <poll.h>
 #include <arpa/inet.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "event.h"
 #include "mtimer.h"
@@ -8,6 +9,7 @@
 #include "display.h"
 
 typedef enum io_event_kind {
+    IO_EVENT_KIND_DELETE = 0,
     IO_EVENT_KIND_LISTEN = 1,
     IO_EVENT_KIND_SOCKET,
 } io_event_kind_t;
@@ -22,6 +24,7 @@ struct io_event {
         struct {
             on_data_f on_read;
             on_data_f on_write;
+            on_data_f on_disconnect;
         } client;
     };
 };
@@ -67,7 +70,7 @@ io_event_t * event_server_add(uint16_t port, on_accept_f on_accept, void *data)
     };
     s    = socket (AF_INET, SOCK_STREAM, 0);
 
-    if(bind (s, (struct sockaddr *) &addr, sizeof (addr)) == -1)
+    if(bind(s, (struct sockaddr *) &addr, sizeof (addr)) == -1)
         return NULL;
 
     if(setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &opt,sizeof(opt)) == -1)
@@ -98,10 +101,11 @@ io_event_t * event_client_add(int sck, void *data)
 
     event = (io_event_t *) malloc(sizeof(io_event_t));
 
-    event->kind             = IO_EVENT_KIND_SOCKET;
-    event->client.on_read   = NULL;
-    event->client.on_write  = NULL;
-    event->data             = data;
+    event->kind                  = IO_EVENT_KIND_SOCKET;
+    event->client.on_read        = NULL;
+    event->client.on_write       = NULL;
+    event->client.on_disconnect  = NULL;
+    event->data                  = data;
 
     vector_pollfd_push(poll_sck, &((struct pollfd) {
                 .fd      = sck,
@@ -207,15 +211,50 @@ int event_client_clr_on_write(io_event_t *ev)
     return 0;
 }
 
+int event_client_set_on_disconnect(io_event_t *ev, on_data_f on_disconnect)
+{
+    assert(ev);
+    assert(ev->kind == IO_EVENT_KIND_SOCKET);
+
+    if(on_disconnect == NULL)
+        return -1;
+
+    if(ev->kind != IO_EVENT_KIND_SOCKET)
+        return -1;
+
+    ev->client.on_disconnect = on_disconnect;
+
+    return 0;
+}
+
+int event_client_clr_on_disconnect(io_event_t *ev)
+{
+    assert(ev);
+    assert(ev->kind == IO_EVENT_KIND_SOCKET);
+
+    if(ev->kind != IO_EVENT_KIND_SOCKET)
+        return -1;
+
+    ev->client.on_disconnect = NULL;
+
+    return 0;
+}
+
 void event_delete(io_event_t *ev)
 {
     io_event_t **v;
     int          i;
 
+    if(ev == NULL)
+        return;
+
+    if(ev->kind == IO_EVENT_KIND_DELETE)
+        return;
+
     VECTOR_EACH(events, v) {
         if(*v == ev) {
             i = VECTOR_GET_INDEX(events, v);
-            free(ev);
+            ev->kind = IO_EVENT_KIND_DELETE;
             vector_pollfd_delete_by_index(poll_sck, i);
             vector_event_delete_by_index(events, i);
             break;
@@ -242,7 +281,9 @@ void event_loop(void)
 
         poll(poll_sck->data, VECTOR_GET_LEN(poll_sck), diff);
         VECTOR_REVERSE_EACH(poll_sck, v) {
-            if(v->revents == 0)
+            int revents = v->revents;
+
+            if(revents == 0)
                 continue;            
 
             e = *VECTOR_GET_BY_INDEX(events, VECTOR_GET_INDEX(poll_sck, v));
@@ -255,14 +296,25 @@ void event_loop(void)
                 }
                 break;
             case IO_EVENT_KIND_SOCKET:
-                if(v->revents & POLLIN)
+                if(revents & POLLIN)
                     e->client.on_read(e, sck, e->data);
-                if(v->revents & POLLOUT)
+                if(revents & POLLHUP) {
+                    if(e->client.on_disconnect)
+                        e->client.on_disconnect(e, sck, e->data);
+                    close(sck);
+                    event_delete(e);
+                }
+                if(revents & POLLOUT)
                     e->client.on_write(e, sck, e->data);
                 break;
+            case IO_EVENT_KIND_DELETE:
+                break;
             }
-
-            v->revents = 0;
+            if(e->kind == IO_EVENT_KIND_DELETE) {
+                free(e);
+            } else {
+                v->revents = 0;
+            }
         }
     }
 
