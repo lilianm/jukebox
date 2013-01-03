@@ -10,8 +10,8 @@ string_t string_expand(string_t str, size_t len)
     string_t ret;
 
     if(len) {
-        alloc_size = (len - 1) / STRING_MINIMUM_ALLOC_SIZE;
-        alloc_size = (len + 1) * STRING_MINIMUM_ALLOC_SIZE;
+        alloc_size = (len - 1)        / STRING_MINIMUM_ALLOC_SIZE;
+        alloc_size = (alloc_size + 1) * STRING_MINIMUM_ALLOC_SIZE;
     } else {
         alloc_size = 0;
     }
