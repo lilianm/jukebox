@@ -113,6 +113,18 @@ io_event_t * event_client_add(int sck, void *data)
     return event;
 }
 
+static int event_search(io_event_t *ev)
+{
+    io_event_t **v;
+
+    VECTOR_EACH(events, v) {
+        if(*v == ev) {
+            return VECTOR_GET_INDEX(events, v);
+        }
+    }
+    return -1;
+}
+
 int event_client_set_on_read(io_event_t *ev, on_data_f on_read)
 {
     int i;
@@ -126,7 +138,7 @@ int event_client_set_on_read(io_event_t *ev, on_data_f on_read)
     if(ev->kind != IO_EVENT_KIND_SOCKET)
         return -1;
 
-    i = VECTOR_GET_INDEX(events, &ev);
+    i = event_search(ev);
 
     ev->client.on_read = on_read;
 
@@ -145,7 +157,7 @@ int event_client_clr_on_read(io_event_t *ev)
     if(ev->kind != IO_EVENT_KIND_SOCKET)
         return -1;
 
-    i = VECTOR_GET_INDEX(events, &ev);
+    i = event_search(ev);
 
     ev->client.on_read = NULL;
 
@@ -167,7 +179,7 @@ int event_client_set_on_write(io_event_t *ev, on_data_f on_write)
     if(ev->kind != IO_EVENT_KIND_SOCKET)
         return -1;
 
-    i = VECTOR_GET_INDEX(events, &ev);
+    i = event_search(ev);
 
     ev->client.on_write = on_write;
 
@@ -186,11 +198,11 @@ int event_client_clr_on_write(io_event_t *ev)
     if(ev->kind != IO_EVENT_KIND_SOCKET)
         return -1;
 
-    i = VECTOR_GET_INDEX(events, &ev);
+    i = event_search(ev);
 
     ev->client.on_write = NULL;
 
-    VECTOR_GET_BY_INDEX(poll_sck, i)->events &= ~POLLIN;
+    VECTOR_GET_BY_INDEX(poll_sck, i)->events &= ~POLLOUT;
 
     return 0;
 }
