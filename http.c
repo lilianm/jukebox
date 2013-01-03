@@ -8,6 +8,7 @@
 #include "event.h"
 #include "vector.h"
 #include "display.h"
+#include "event_output.h"
 
 #define CRLF "\r\n"
 
@@ -27,6 +28,8 @@ VECTOR_T(option, http_option_t);
 VECTOR_T(line, stream_t);
 
 struct http_request {
+    event_output_t      output;
+
     io_event_t         *event;
     http_node_t        *root;
 
@@ -41,6 +44,7 @@ struct http_request {
 
 void http_request_init(http_request_t *hr)
 {
+    event_output_init(&hr->output);
     vector_option_init(&hr->options);
     hr->header_length = 0;
 }
@@ -378,8 +382,7 @@ static void on_http_client_data(io_event_t *ev, int sck, void *data)
         return;
     }
 
-//    send(sck, basic_reponse, sizeof(basic_reponse) - 1, MSG_DONTWAIT);
-    //channel_create(sck);
+    event_output_send(ev, sck, not_found_reponse, sizeof(not_found_reponse), NULL);
 }
 
 static void on_http_new_connection(io_event_t *ev, int sck,
