@@ -99,6 +99,9 @@ static inline int stream_find_mem(stream_t *s, void *mem, size_t size, stream_t 
 
     void *pos;
 
+    if((signed)size > stream_len(s))
+        return -1;
+
     pos = memmem(s->data, stream_len(s), mem, size);
 
     if(pos == NULL)
