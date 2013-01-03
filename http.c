@@ -12,12 +12,12 @@
 
 #define CRLF "\r\n"
 
-struct http_node {
+typedef struct http_node {
     char                *name;
     GHashTable          *child;
     http_node_callback   callback;
     void                *data;
-};
+} http_node_t;
 
 typedef struct http_option_t {
     stream_t    name;
@@ -41,6 +41,23 @@ struct http_request {
     int                 content_length;
     void*               data;
 };
+
+struct http_server
+{
+    io_event_t         *event;
+    http_node_t        *root;
+};
+
+int http_request_detach(http_request_t *hr)
+{
+    int fd;
+
+    fd = event_get_fd(hr->event);
+    event_delete(hr->event);
+    free(hr);
+
+    return fd;
+}
 
 void http_request_init(http_request_t *hr)
 {
@@ -122,7 +139,7 @@ static guint    http_str_hash(gconstpointer v)
     return hash;
 }
 
-struct http_node * http_node_search(struct http_node *n, const char *path, const char **remaining)
+static struct http_node * http_node_search(struct http_node *n, const char *path, const char **remaining)
 {
     char                *name;
     size_t               name_size;
@@ -132,7 +149,6 @@ struct http_node * http_node_search(struct http_node *n, const char *path, const
     assert(n);
     assert(path);
     assert(remaining);
-    assert(*remaining);
 
     save_path = path;
 
@@ -163,7 +179,7 @@ struct http_node * http_node_search(struct http_node *n, const char *path, const
     return n;
 }
 
-struct http_node * http_node_search_callback(struct http_node *n, const char *path, size_t len, const char **remaining, size_t *remaining_len)
+static struct http_node * http_node_search_callback(struct http_node *n, const char *path, size_t len, const char **remaining, size_t *remaining_len)
 {
     char                *name;
     size_t               name_size;
@@ -173,9 +189,7 @@ struct http_node * http_node_search_callback(struct http_node *n, const char *pa
     const char          *end;
 
     assert(n);
-    assert(path);
     assert(remaining);
-    assert(*remaining);
 
     end       = path + len;
     save_path = path;
@@ -196,20 +210,22 @@ struct http_node * http_node_search_callback(struct http_node *n, const char *pa
 
     *remaining = memchr(path, '/', len);
 
-    if(remaining) {
-        *remaining_len = end - *remaining;
-        name_size      = *remaining - path;
-        name           = alloca(name_size + 1);
-        memcpy(name, path, name_size);
-        name[name_size] = 0;
-
-        next = g_hash_table_lookup(n->child, name);
-        if(next)
-            next = http_node_search_callback(next, *remaining, *remaining_len,
-                                             remaining, remaining_len);
-        if(next)
-            return next;
+    if(*remaining == NULL) {
+        *remaining = end;
     }
+
+    *remaining_len = end - *remaining;
+    name_size      = *remaining - path;
+    name           = alloca(name_size + 1);
+    memcpy(name, path, name_size);
+    name[name_size] = 0;
+
+    next = g_hash_table_lookup(n->child, name);
+    if(next)
+        next = http_node_search_callback(next, *remaining, *remaining_len,
+                                         remaining, remaining_len);
+    if(next)
+        return next;
 
     *remaining     = save_path;
     *remaining_len = save_len;
@@ -264,7 +280,7 @@ static struct http_node * http_node_create_path(struct http_node *n, const char 
     return n;
 }
 
-struct http_node * http_node_new(struct http_node *root, char *path, http_node_callback cb, void *data)
+http_node_t * __http_node_new(http_node_t *root, char *path, http_node_callback cb, void *data)
 {
     struct http_node    *n;
     const char          *remaining;
@@ -284,11 +300,12 @@ struct http_node * http_node_new(struct http_node *root, char *path, http_node_c
     return n;
 }
 
-struct http_server
+int http_node_new(http_server_t *server, char *path, http_node_callback cb, void *data)
 {
-    io_event_t         *event;
-    http_node_t        *root;
-};
+    if(__http_node_new(server->root, path, cb, data) == NULL)
+        return -1;
+    return 0;
+}
 
 void http_server_init(http_server_t *hs, io_event_t *ev, http_node_t *root)
 {
@@ -304,7 +321,7 @@ __attribute__((unused)) static char not_found_reponse[] =
     CRLF CRLF
     "<html><head><title>404 Not found</title></head><body><H1>Not found</H1></body></head>";
 
-int http_header_decode(http_request_t *hr)
+static int http_header_decode(http_request_t *hr, int sck)
 {
     vector_line_t       opt;
     stream_t            line;
@@ -346,6 +363,7 @@ int http_header_decode(http_request_t *hr)
     if(current) {
         current->callback(hr, current->data, remaining, remaining_size);
     } else {
+        event_output_send(hr->event, sck, not_found_reponse, sizeof(not_found_reponse), NULL);
     }
 
     return 0;
@@ -373,16 +391,15 @@ static void on_http_client_data(io_event_t *ev, int sck, void *data)
     }
     
     hr->header_length += ret;
-    if(http_header_decode(hr) != 0) {
+    if(http_header_decode(hr, sck) != 0) {
         if(hr->header_length == sizeof(hr->header)) {
             print_error("HTTP Header size too big");
             event_delete(ev);
+            free(data);
             close(sck);
         }
         return;
     }
-
-    event_output_send(ev, sck, not_found_reponse, sizeof(not_found_reponse), NULL);
 }
 
 static void on_http_new_connection(io_event_t *ev, int sck,
@@ -402,15 +419,15 @@ static void on_http_new_connection(io_event_t *ev, int sck,
     event_client_set_on_read(hr->event, on_http_client_data);
 }
 
-http_server_t * http_server_new(uint16_t port, http_node_t *root)
+http_server_t * http_server_new(uint16_t port)
 {
     http_server_t *hs;
     io_event_t    *ev;
+    http_node_t   *root;
 
-    hs = (http_server_t*) malloc(sizeof(http_server_t));
-    ev = event_server_add(port, on_http_new_connection, hs);
-    if(root == NULL)
-        root = http_node_new(NULL, NULL, NULL, NULL);
+    hs   = (http_server_t*) malloc(sizeof(http_server_t));
+    ev   = event_server_add(port, on_http_new_connection, hs);
+    root = __http_node_new(NULL, NULL, NULL, NULL);
 
     http_server_init(hs, ev, root);
 
