@@ -2,9 +2,12 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <assert.h>
 
 void event_output_init(event_output_t *output)
 {
+    assert(output);
+
     output->read   = 0;
     output->write  = 0;
 }
@@ -19,6 +22,24 @@ event_output_t * event_output_new(void)
     return output;
 }
 
+void event_output_clean(event_output_t *output)
+{
+    int idx;
+
+    assert(output);
+
+    while(output->write != output->read) {
+        idx = output->read & (EVENT_OUTPUT_MAX_BUFFER - 1);
+        output->buffer[idx].free(output->buffer[idx].data);
+        output->read++;
+    }
+}
+
+void event_output_free(event_output_t *output)
+{
+    event_output_clean(output);
+    free(output);
+}
 
 static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
 {

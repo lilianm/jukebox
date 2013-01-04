@@ -54,6 +54,7 @@ int http_request_detach(http_request_t *hr)
 
     fd = event_get_fd(hr->event);
     event_delete(hr->event);
+    event_output_clean(&hr->output);
     free(hr);
 
     return fd;

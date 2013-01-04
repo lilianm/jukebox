@@ -32,4 +32,8 @@ void event_output_init(event_output_t *output);
 
 int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f free_cb);
 
+void event_output_clean(event_output_t *output);
+
+void event_output_free(event_output_t *output);
+
 #endif /* __EVENT_OUTPUT_H__ */
