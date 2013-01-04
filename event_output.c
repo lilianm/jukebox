@@ -19,7 +19,6 @@ event_output_t * event_output_new(void)
     return output;
 }
 
-#include <stdio.h>
 
 static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
 {
@@ -44,7 +43,6 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
         data    = output->buffer[idx].data;
         size    = output->buffer[idx].size;
         free_cb = output->buffer[idx].free;
-        printf("totot\n");
         retry:
         ret = send(sck, data + offset, size - offset,
                    MSG_DONTWAIT | MSG_NOSIGNAL);
@@ -140,7 +138,6 @@ int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f f
     output->write++;
 
     event_client_set_on_write(ev, event_output_send_callback);
-    printf("aaa\n");
 
     return 0;
 }
