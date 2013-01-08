@@ -7,7 +7,7 @@ LDFLAGS=-g -fPIC
 LDFLAGS_JUKEBOX=${LDFLAGS} -lsqlite3 -lpthread $(shell pkg-config --libs glib-2.0)
 LDFLAGS_RUBY=${LDFLAGS} --shared ${shell pkg-config --libs ruby-1.9}
 
-all: httpd  jukebox # jukebox_fw.so
+all: jukebox # jukebox_fw.so
 
 install: all
 

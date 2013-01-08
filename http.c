@@ -153,7 +153,7 @@ static struct http_node * http_node_search(struct http_node *n, const char *path
 
     save_path = path;
 
-    while(*path && *path != '/')
+    while(*path && *path == '/')
         path++;
 
     if(*path == 0) {
@@ -267,6 +267,9 @@ static struct http_node * http_node_create_path(struct http_node *n, const char 
     while(*path) {
         while(*path && *path == '/')
             path++;
+        if(*path == 0)
+            return n;
+
         remaining = strchrnul(path, '/');
         name_size = remaining - path;
         
