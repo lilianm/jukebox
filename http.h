@@ -15,4 +15,6 @@ int http_request_detach(http_request_t *hr);
 
 http_server_t * http_server_new(uint16_t port);
 
+void http_dump_tree(http_server_t *server);
+
 #endif  /* __HTTP_H__ */

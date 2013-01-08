@@ -438,3 +438,38 @@ http_server_t * http_server_new(uint16_t port)
     return hs;
 }
 
+#include <stdio.h>
+
+static void http_dump_node(gpointer key, gpointer value, gpointer user_data)
+{
+    http_node_t *n;
+    char        *name;
+    int         *level;
+
+    name  = key;
+    n     = value;
+    level = user_data;
+
+    fprintf(stderr, "%*s%s cb=%p data=%p\n", *level, "", name, n->callback, n->data);
+
+    *level += 1;
+    g_hash_table_foreach(n->child, http_dump_node, user_data);
+    *level -= 1;
+}
+
+void http_dump_tree(http_server_t *server)
+{
+    int level = 0;
+
+    if(server == NULL) {
+        fprintf(stderr, "HTTP server (null)\n");
+        return;
+    }
+
+    if(server->root == NULL) {
+        fprintf(stderr, "HTTP server (null)\n");
+        return;
+    }
+
+    http_dump_node("root", server->root, &level);
+}
