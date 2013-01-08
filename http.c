@@ -295,7 +295,7 @@ http_node_t * __http_node_new(http_node_t *root, char *path, http_node_callback 
         return http_node_malloc(NULL, 0, cb, data);
 
     n = http_node_search(root, path, &remaining);
-    if(remaining)
+    if(*remaining)
         n = http_node_create_path(n, remaining);
 
     n->callback = cb;
@@ -317,13 +317,37 @@ void http_server_init(http_server_t *hs, io_event_t *ev, http_node_t *root)
     hs->root  = root;
 }
 
-__attribute__((unused)) static char not_found_reponse[] =
+static char not_found_response[] =
     "HTTP/1.1 404 Not found" CRLF
     "Content-Type: text/html" CRLF
-    "Content-Length: 85"
+    "Content-Length: 85" CRLF
     "Connection: Keep-Alive" CRLF
     CRLF CRLF
     "<html><head><title>404 Not found</title></head><body><H1>Not found</H1></body></head>";
+
+static char internal_error_response[] =
+    "HTTP/1.1 500 Internal error" CRLF
+    "Content-Type: text/html" CRLF
+    "Content-Length: 95" CRLF
+    "Connection: Keep-Alive" CRLF
+    CRLF CRLF
+    "<html><head><title>500 Internal error</title></head><body><H1>Internal error</H1></body></head>";
+
+void http_send_404(http_request_t *hr)
+{
+    int sck;
+
+    sck = event_get_fd(hr->event);
+    event_output_send(hr->event, sck, not_found_response, sizeof(not_found_response) - 1, NULL);
+}
+
+void http_send_500(http_request_t *hr)
+{
+    int sck;
+
+    sck = event_get_fd(hr->event);
+    event_output_send(hr->event, sck, internal_error_response, sizeof(internal_error_response) - 1, NULL);
+}
 
 static int http_header_decode(http_request_t *hr, int sck)
 {
@@ -334,6 +358,8 @@ static int http_header_decode(http_request_t *hr, int sck)
     stream_t            header;
 
     assert(hr);
+
+    (void) sck;
 
     data = stream_init(hr->header, hr->header_length);
 
@@ -365,9 +391,10 @@ static int http_header_decode(http_request_t *hr, int sck)
     current = http_node_search_callback(root, hr->uri.data, stream_len(&hr->uri),
                                         &remaining, &remaining_size);
     if(current) {
-        current->callback(hr, current->data, remaining, remaining_size);
+        if(current->callback(hr, current->data, remaining, remaining_size) < 0)
+            http_send_500(hr);
     } else {
-        event_output_send(hr->event, sck, not_found_reponse, sizeof(not_found_reponse), NULL);
+        http_send_404(hr);
     }
 
     return 0;
