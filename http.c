@@ -373,7 +373,6 @@ static int http_header_decode(http_request_t *hr, int sck)
     while(stream_find_mem(&header, "\r\n", 2, &line) != -1)
     {
         vector_line_push(&opt, &line);
-        stream_skip(&header, 2);
     }
 
     http_request_line_decode(hr, &opt.data[0]);
@@ -399,9 +398,11 @@ static int http_header_decode(http_request_t *hr, int sck)
         http_send_404(hr);
     }
 
+    hr->header_length = stream_len(&data);
+    memmove(hr->header, data.data, hr->header_length);
+
     return 0;
 }
-
 
 static void on_http_client_data(io_event_t *ev, int sck, void *data)
 {

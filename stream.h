@@ -108,7 +108,7 @@ static inline int stream_find_mem(stream_t *s, void *mem, size_t size, stream_t 
         return -1;
 
     *out = stream_init_ptr(s->data, pos);
-    stream_clip(s, pos);
+    stream_clip(s, pos + size);
 
     return 0;
 }
