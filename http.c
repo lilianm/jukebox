@@ -436,6 +436,27 @@ static void on_http_client_data(io_event_t *ev, int sck, void *data)
     }
 }
 
+void http_send_reponse(http_request_t *hr, void *buffer, size_t size, free_f free_cb, void *user_data)
+{
+    int     sck;
+    char   *header;
+    size_t  header_size;
+    char    basic_response[] = {
+        "HTTP/1.1 200 OK" CRLF
+        "Content-Length: %i" CRLF
+        "Connection: keep-alive" CRLF
+        CRLF
+    };
+
+    sck = event_get_fd(hr->event);
+
+    header = (char *) malloc(256);
+    header_size = snprintf(header, 256, basic_response, size);
+
+    event_output_send(hr->event, sck, header, header_size, (free_f) free, NULL);
+    event_output_send(hr->event, sck, buffer, size, free_cb, user_data);
+}
+
 static void on_http_new_connection(io_event_t *ev, int sck,
                                    struct sockaddr_in *addr, void *data)
 {

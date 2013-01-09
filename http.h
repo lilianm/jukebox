@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "event_output.h"
+
 typedef struct http_server http_server_t;
 
 typedef struct http_request http_request_t;
@@ -16,5 +18,7 @@ int http_request_detach(http_request_t *hr);
 http_server_t * http_server_new(uint16_t port);
 
 void http_dump_tree(http_server_t *server);
+
+void http_send_reponse(http_request_t *hr, void *buffer, size_t size, free_f free_cb, void *user_data);
 
 #endif  /* __HTTP_H__ */
