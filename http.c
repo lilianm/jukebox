@@ -338,7 +338,8 @@ void http_send_404(http_request_t *hr)
     int sck;
 
     sck = event_get_fd(hr->event);
-    event_output_send(hr->event, sck, not_found_response, sizeof(not_found_response) - 1, NULL);
+    event_output_send(hr->event, sck, 
+                      not_found_response, sizeof(not_found_response) - 1, NULL, NULL);
 }
 
 void http_send_500(http_request_t *hr)
@@ -346,7 +347,8 @@ void http_send_500(http_request_t *hr)
     int sck;
 
     sck = event_get_fd(hr->event);
-    event_output_send(hr->event, sck, internal_error_response, sizeof(internal_error_response) - 1, NULL);
+    event_output_send(hr->event, sck,
+                      internal_error_response, sizeof(internal_error_response) - 1, NULL, NULL);
 }
 
 static int http_header_decode(http_request_t *hr, int sck)

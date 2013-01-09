@@ -10,12 +10,13 @@
 #define EVENT_OUTPUT_MAX_BUFFER 16
 #endif /* EVENT_OUTPUT_MAX_BUFFER */
 
-typedef void *(*free_f)(void *data);
+typedef void (*free_f)(void *data, void *user_data);
 
 typedef struct output_buffer {
     void                        *data;
     size_t                       size;
     free_f                       free;
+    void                        *user_data;
 } output_buffer_t;
 
 typedef struct event_output_t {
@@ -30,7 +31,7 @@ event_output_t * event_output_new(void);
 
 void event_output_init(event_output_t *output);
 
-int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f free_cb);
+int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f free_cb, void *user_data);
 
 void event_output_clean(event_output_t *output);
 

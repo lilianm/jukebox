@@ -30,7 +30,7 @@ void event_output_clean(event_output_t *output)
 
     while(output->write != output->read) {
         idx = output->read & (EVENT_OUTPUT_MAX_BUFFER - 1);
-        output->buffer[idx].free(output->buffer[idx].data);
+        output->buffer[idx].free(output->buffer[idx].data, output->buffer[idx].user_data);
         output->read++;
     }
 }
@@ -48,6 +48,7 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
     int             offset      =  0;
     int             idx;
     void           *data;
+    void           *user_data;
     size_t          size;
     free_f          free_cb;
 
@@ -60,17 +61,18 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
     }
 
     while(output->write != output->read) {
-        idx     = output->read & (EVENT_OUTPUT_MAX_BUFFER - 1);
-        data    = output->buffer[idx].data;
-        size    = output->buffer[idx].size;
-        free_cb = output->buffer[idx].free;
+        idx       = output->read & (EVENT_OUTPUT_MAX_BUFFER - 1);
+        data      = output->buffer[idx].data;
+        size      = output->buffer[idx].size;
+        free_cb   = output->buffer[idx].free;
+        user_data = output->buffer[idx].user_data;
         retry:
         ret = send(sck, data + offset, size - offset,
                    MSG_DONTWAIT | MSG_NOSIGNAL);
         if(ret >= 0) {
             if(ret == (signed) size - offset) {
                 if(free_cb)
-                    free_cb(data);
+                    free_cb(data, user_data);
                 output->read++;
                 offset = 0;
                 continue;
@@ -91,8 +93,7 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
                 free_cb = output->buffer[idx].free;
 
                 if(free_cb)
-                    free_cb(data);
-
+                    free_cb(data, user_data);
                 output->read++;
             }
 
@@ -108,7 +109,7 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
     }
 }
 
-int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f free_cb)
+int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f free_cb, void *user_data)
 {
     event_output_t *output;
     int             ret         = -1;
@@ -126,7 +127,7 @@ int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f f
             if(ret >= 0) {
                 if(ret == (signed) size) {
                     if(free_cb)
-                        free_cb(data);
+                        free_cb(data, user_data);
                     return 0;
                 }
                 offset = ret;
@@ -140,7 +141,7 @@ int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f f
                     break;
 
                 if(free_cb)
-                    free_cb(data);
+                    free_cb(data, user_data);
                 return -1;
             }
         }
@@ -151,10 +152,11 @@ int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f f
 
     idx = output->write & (EVENT_OUTPUT_MAX_BUFFER - 1);
 
-    output->buffer[idx].data = data;
-    output->buffer[idx].size = size;
-    output->buffer[idx].free = free_cb;
-    output->offset           = offset;
+    output->buffer[idx].data      = data;
+    output->buffer[idx].size      = size;
+    output->buffer[idx].free      = free_cb;
+    output->buffer[idx].user_data = user_data;
+    output->offset                = offset;
 
     output->write++;
 
