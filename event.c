@@ -302,6 +302,8 @@ void event_loop(void)
             if(revents == 0)
                 continue;            
 
+            v->revents = 0;
+
             e = *VECTOR_GET_BY_INDEX(events, VECTOR_GET_INDEX(poll_sck, v));
             switch(e->kind) {
             case IO_EVENT_KIND_LISTEN:
@@ -312,6 +314,7 @@ void event_loop(void)
                 }
                 break;
             case IO_EVENT_KIND_SOCKET:
+                sck = v->fd;
                 if(revents & POLLIN)
                     e->client.on_read(e, sck, e->data);
                 if(revents & POLLHUP) {
@@ -328,8 +331,6 @@ void event_loop(void)
             }
             if(e->kind == IO_EVENT_KIND_DELETE) {
                 free(e);
-            } else {
-                v->revents = 0;
             }
         }
     }
