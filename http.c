@@ -414,8 +414,8 @@ static void on_http_client_data(io_event_t *ev, int sck, void *data)
     retry:
     ret = recv(sck, hr->header + hr->header_length,
                sizeof(hr->header) - hr->header_length, MSG_NOSIGNAL);
-    if(ret == -1) {
-        if(errno == EINTR)
+    if(ret <= 0) {
+        if(ret != 0 && errno == EINTR)
             goto retry;
 
         print_debug("HTTP Connection close: %m");

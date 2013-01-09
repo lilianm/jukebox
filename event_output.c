@@ -69,7 +69,7 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
         retry:
         ret = send(sck, data + offset, size - offset,
                    MSG_DONTWAIT | MSG_NOSIGNAL);
-        if(ret >= 0) {
+        if(ret > 0) {
             if(ret == (signed) size - offset) {
                 if(free_cb)
                     free_cb(data, user_data);
@@ -79,13 +79,15 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
             }
             offset += ret;
         } else {
-            if(errno == EINTR)
-                goto retry;
+            if(ret == -1) {
+                if(errno == EINTR)
+                    goto retry;
 
-            if(errno == EAGAIN ||
-               errno == EWOULDBLOCK ||
-               errno == ENOBUFS)
-                break;
+                if(errno == EAGAIN ||
+                   errno == EWOULDBLOCK ||
+                   errno == ENOBUFS)
+                    break;
+            }
 
             while(output->write != output->read) {
                 idx     = output->read & (EVENT_OUTPUT_MAX_BUFFER - 1);
