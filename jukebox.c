@@ -114,6 +114,7 @@ int main(int argc, char *argv[])
 
     server = http_server_new(port);
     http_node_new(server, "/stream", on_stream, NULL);
+    http_node_new(server, "/", on_root, "html");
 
     print_log("Jukebox started");
 
