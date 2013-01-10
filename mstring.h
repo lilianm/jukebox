@@ -133,6 +133,13 @@ static inline string_t string_add_format(string_t str, char *format, va_list ap)
     return str;
 }
 
+static inline int string_cmp(string_t s1, string_t s2)
+{
+    if(s1.len == s2.len && memcmp(s1.txt, s2.txt, s1.len) == 0)
+        return 0;
+    return -1;
+}
+
 static inline void string_dump(string_t str)
 {
     printf("%.*s\n", str.len, str.txt);
