@@ -27,19 +27,25 @@ typedef struct http_option_t {
 VECTOR_T(option, http_option_t);
 VECTOR_T(line, stream_t);
 
+typedef enum http_request_status {
+    HTTP_REQUEST_STATUS_DETACH,
+    HTTP_REQUEST_STATUS_ATTACH,
+} http_request_status_t;
+
 struct http_request {
-    event_output_t      output;
+    event_output_t         output;
+    http_request_status_t  status;
 
-    io_event_t         *event;
-    http_node_t        *root;
+    io_event_t            *event;
+    http_node_t           *root;
 
-    stream_t            method;
-    stream_t            uri;
-    vector_option_t     options;
-    char                header[64*1024];
-    int                 header_length;
-    int                 content_length;
-    void*               data;
+    stream_t               method;
+    stream_t               uri;
+    vector_option_t        options;
+    char                   header[64*1024];
+    int                    header_length;
+    int                    content_length;
+    void*                  data;
 };
 
 struct http_server
@@ -55,7 +61,7 @@ int http_request_detach(http_request_t *hr)
     fd = event_get_fd(hr->event);
     event_delete(hr->event);
     event_output_clean(&hr->output);
-    free(hr);
+    hr->status = HTTP_REQUEST_STATUS_DETACH;
 
     return fd;
 }
@@ -65,6 +71,7 @@ void http_request_init(http_request_t *hr)
     event_output_init(&hr->output);
     vector_option_init(&hr->options);
     hr->header_length = 0;
+    hr->status        = HTTP_REQUEST_STATUS_ATTACH;
 }
 
 http_request_t * http_request_new(void)
@@ -398,8 +405,12 @@ static int http_header_decode(http_request_t *hr, int sck)
         http_send_404(hr);
     }
 
-    hr->header_length = stream_len(&data);
-    memmove(hr->header, data.data, hr->header_length);
+    if(hr->status == HTTP_REQUEST_STATUS_ATTACH) {
+        hr->header_length = stream_len(&data);
+        memmove(hr->header, data.data, hr->header_length);
+    } else {
+        free(hr);
+    }
 
     return 0;
 }
