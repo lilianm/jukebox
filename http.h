@@ -19,6 +19,6 @@ http_server_t * http_server_new(uint16_t port);
 
 void http_dump_tree(http_server_t *server);
 
-void http_send_reponse(http_request_t *hr, void *buffer, size_t size, free_f free_cb, void *user_data);
+void http_send_reponse(http_request_t *hr, char *content_type, void *buffer, size_t size, free_f free_cb, void *user_data);
 
 #endif  /* __HTTP_H__ */

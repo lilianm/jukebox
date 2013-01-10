@@ -449,7 +449,7 @@ static void on_http_client_data(io_event_t *ev, int sck, void *data)
     }
 }
 
-void http_send_reponse(http_request_t *hr, void *buffer, size_t size, free_f free_cb, void *user_data)
+void http_send_reponse(http_request_t *hr, char *content_type, void *buffer, size_t size, free_f free_cb, void *user_data)
 {
     int     sck;
     char   *header;
@@ -457,14 +457,18 @@ void http_send_reponse(http_request_t *hr, void *buffer, size_t size, free_f fre
     char    basic_response[] = {
         "HTTP/1.1 200 OK" CRLF
         "Content-Length: %i" CRLF
+        "Content-Type: %s" CRLF
         "Connection: keep-alive" CRLF
         CRLF
     };
 
+    if(content_type == NULL)
+        content_type = "text/html";
+
     sck = event_get_fd(hr->event);
 
     header = (char *) malloc(256);
-    header_size = snprintf(header, 256, basic_response, size);
+    header_size = snprintf(header, 256, basic_response, size, content_type);
 
     event_output_send(hr->event, sck, header, header_size, (free_f) free, NULL);
     event_output_send(hr->event, sck, buffer, size, free_cb, user_data);
