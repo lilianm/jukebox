@@ -77,7 +77,6 @@ static inline void stream_strip(stream_t *s)
 static inline int stream_find_chr(stream_t *s, int c, stream_t *out)
 {
     assert(s);
-    assert(out);
 
     void *pos;
 
@@ -86,8 +85,27 @@ static inline int stream_find_chr(stream_t *s, int c, stream_t *out)
     if(pos == NULL)
         return -1;
 
-    *out = stream_init_ptr(s->data, pos);
-    stream_clip(s, pos);
+    if(out)
+        *out = stream_init_ptr(s->data, pos);
+    stream_clip(s, pos + 1);
+
+    return 0;
+}
+
+static inline int stream_find_rchr(stream_t *s, int c, stream_t *out)
+{
+    assert(s);
+
+    void *pos;
+
+    pos = memrchr(s->data, c, stream_len(s));
+
+    if(pos == NULL)
+        return -1;
+
+    if(out)
+        *out = stream_init_ptr(s->data, pos);
+    stream_clip(s, pos + 1);
 
     return 0;
 }
@@ -95,7 +113,6 @@ static inline int stream_find_chr(stream_t *s, int c, stream_t *out)
 static inline int stream_find_mem(stream_t *s, void *mem, size_t size, stream_t *out)
 {
     assert(s);
-    assert(out);
 
     void *pos;
 
@@ -107,7 +124,8 @@ static inline int stream_find_mem(stream_t *s, void *mem, size_t size, stream_t 
     if(pos == NULL)
         return -1;
 
-    *out = stream_init_ptr(s->data, pos);
+    if(out)
+        *out = stream_init_ptr(s->data, pos);
     stream_clip(s, pos + size);
 
     return 0;
