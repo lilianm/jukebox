@@ -392,6 +392,8 @@ static int http_header_decode(http_request_t *hr, int sck)
         hr->content_length = atoi(content_length.data);
     }
 
+    print_debug("HTTP request %.*s", stream_len(&hr->uri), hr->uri.data);
+
     const char            *remaining;
     http_node_t           *root           = hr->root;
     struct http_node      *current;
