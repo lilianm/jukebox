@@ -45,7 +45,9 @@ struct http_request {
     char                   header[64*1024];
     int                    header_length;
     int                    content_length;
+
     void*                  data;
+    free_session_f         free_data;
 };
 
 struct http_server
@@ -53,6 +55,20 @@ struct http_server
     io_event_t         *event;
     http_node_t        *root;
 };
+
+void http_request_set_data(http_request_t *hr, void *data, free_session_f free)
+{
+    if(hr->data && hr->free_data)
+        hr->free_data(hr->data);
+
+    hr->data      = data;
+    hr->free_data = free;
+}
+
+void * http_request_get_data(http_request_t *hr)
+{
+    return hr->data;
+}
 
 int http_request_detach(http_request_t *hr)
 {

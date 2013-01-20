@@ -11,9 +11,15 @@ typedef struct http_request http_request_t;
 
 typedef int (*http_node_f)(http_request_t *hr, void *data, const char *remaining, size_t size);
 
+typedef void (*free_session_f)(void *);
+
 int http_node_new(http_server_t *server, char *path, http_node_f cb, void *data);
 
 int http_request_detach(http_request_t *hr);
+
+void http_request_set_data(http_request_t *hr, void *data, free_session_f free);
+
+void * http_request_get_data(http_request_t *hr);
 
 http_server_t * http_server_new(uint16_t port);
 
