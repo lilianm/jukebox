@@ -146,6 +146,16 @@ static int on_root(http_request_t *hr, void *data, const char *remaining, size_t
     return 0;
 }
 
+int auth_session(http_request_t *hr, char *login, char *password)
+{
+    (void) hr;
+
+    if(login && password &&
+       strcmp(login, password) == 0)
+        return 0;
+    return -1;
+}
+
 int main(int argc, char *argv[])
 {
     int            port           = 8080;
@@ -162,6 +172,7 @@ int main(int argc, char *argv[])
     server = http_server_new(port);
     http_node_new(server, "/stream", on_stream, NULL);
     http_node_new(server, "/", on_root, "html");
+    http_server_set_auth_cb(server, auth_session);
 
     print_log("Jukebox started");
 
