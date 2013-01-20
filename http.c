@@ -15,7 +15,7 @@
 typedef struct http_node {
     char                *name;
     GHashTable          *child;
-    http_node_callback   callback;
+    http_node_f          callback;
     void                *data;
 } http_node_t;
 
@@ -243,7 +243,7 @@ static struct http_node * http_node_search_callback(struct http_node *n, const c
 }
 
 static struct http_node * http_node_malloc(const char *name, size_t len,
-                                           http_node_callback cb, void *data)
+                                           http_node_f cb, void *data)
 {
     struct http_node *n;
 
@@ -291,7 +291,7 @@ static struct http_node * http_node_create_path(struct http_node *n, const char 
     return n;
 }
 
-http_node_t * __http_node_new(http_node_t *root, char *path, http_node_callback cb, void *data)
+http_node_t * __http_node_new(http_node_t *root, char *path, http_node_f cb, void *data)
 {
     struct http_node    *n;
     const char          *remaining;
@@ -311,7 +311,7 @@ http_node_t * __http_node_new(http_node_t *root, char *path, http_node_callback 
     return n;
 }
 
-int http_node_new(http_server_t *server, char *path, http_node_callback cb, void *data)
+int http_node_new(http_server_t *server, char *path, http_node_f cb, void *data)
 {
     if(__http_node_new(server->root, path, cb, data) == NULL)
         return -1;
