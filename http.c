@@ -9,6 +9,7 @@
 #include "vector.h"
 #include "display.h"
 #include "event_output.h"
+#include "base64.h"
 
 #define CRLF "\r\n"
 
@@ -54,9 +55,17 @@ struct http_server
 {
     io_event_t         *event;
     http_node_t        *root;
+    auth_session_f      auth;
 
     int                 nref;
 };
+
+int http_server_set_auth_cb(http_server_t *server, auth_session_f as)
+{
+    server->auth = as;
+
+    return 0;
+}
 
 void http_request_set_data(http_request_t *hr, void *data, free_session_f free)
 {
@@ -410,6 +419,10 @@ static int http_header_decode(http_request_t *hr, int sck)
     http_node_t        *root           = hr->server->root;
     struct http_node   *current;
     size_t              remaining_size;
+    char                buffer[512];
+    char               *login          = NULL;
+    char               *password       = NULL;
+    stream_t            out;
 
     assert(hr);
 
@@ -441,6 +454,29 @@ static int http_header_decode(http_request_t *hr, int sck)
 
     current = http_node_search_callback(root, hr->uri.data, stream_len(&hr->uri),
                                         &remaining, &remaining_size);
+    if(!(hr->status & HTTP_REQUEST_STATUS_AUTH) &&
+       hr->server->auth != NULL) {
+        if(http_option_search(hr, "Authorization", &out) == 0 &&
+           stream_find_chr(&out, ' ', NULL)              == 0) {
+            printf("test\n");
+            if(convert_base64(out.data, stream_len(&out), buffer, sizeof(buffer)) == 0) {
+                login = buffer;
+                password = strchr(buffer, ':');
+                if(password) {
+                    *password = 0;
+                    password++;
+                    if(*password == 0)
+                        password = NULL;
+                }
+            }
+        }
+        if(hr->server->auth(hr, login, password) != 0) {
+            http_send_401(hr);
+            goto end;
+        }
+        hr->status |= HTTP_REQUEST_STATUS_AUTH;
+    }
+
     if(current) {
         if(current->callback(hr, current->data, remaining, remaining_size) < 0)
             http_send_500(hr);
@@ -448,6 +484,7 @@ static int http_header_decode(http_request_t *hr, int sck)
         http_send_404(hr);
     }
 
+    end:
     if(!(hr->status & HTTP_REQUEST_STATUS_DETACH)) {
         hr->header_length = stream_len(&data);
         memmove(hr->header, data.data, hr->header_length);

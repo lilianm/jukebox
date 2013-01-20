@@ -11,7 +11,7 @@ all: jukebox # jukebox_fw.so
 
 install: all
 
-jukebox: jukebox.o mp3.o mtimer.o encoder.o thread_pool.o db.o mstring.o display.o channel.o event.o http.o event_output.o
+jukebox: jukebox.o mp3.o mtimer.o encoder.o thread_pool.o db.o mstring.o display.o channel.o event.o http.o event_output.o base64.o
 	${LD} -o $@ $+ ${LDFLAGS_JUKEBOX}
 
 jukebox_fw.so: display.o jukebox_fw.o mstring.o mp3.o
