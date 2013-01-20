@@ -28,8 +28,8 @@ VECTOR_T(option, http_option_t);
 VECTOR_T(line, stream_t);
 
 typedef enum http_request_status {
-    HTTP_REQUEST_STATUS_DETACH,
-    HTTP_REQUEST_STATUS_ATTACH,
+    HTTP_REQUEST_STATUS_DETACH = 1,
+    HTTP_REQUEST_STATUS_AUTH   = 2,
 } http_request_status_t;
 
 struct http_request {
@@ -77,7 +77,7 @@ int http_request_detach(http_request_t *hr)
     fd = event_get_fd(hr->event);
     event_delete(hr->event);
     event_output_clean(&hr->output);
-    hr->status = HTTP_REQUEST_STATUS_DETACH;
+    hr->status |= HTTP_REQUEST_STATUS_DETACH;
 
     return fd;
 }
@@ -87,7 +87,7 @@ void http_request_init(http_request_t *hr)
     event_output_init(&hr->output);
     vector_option_init(&hr->options);
     hr->header_length = 0;
-    hr->status        = HTTP_REQUEST_STATUS_ATTACH;
+    hr->status        = 0;
 }
 
 http_request_t * http_request_new(void)
@@ -446,9 +446,10 @@ static int http_header_decode(http_request_t *hr, int sck)
         http_send_404(hr);
     }
 
-    if(hr->status == HTTP_REQUEST_STATUS_ATTACH) {
+    if(!(hr->status & HTTP_REQUEST_STATUS_DETACH)) {
         hr->header_length = stream_len(&data);
         memmove(hr->header, data.data, hr->header_length);
+        vector_option_reset(&hr->options);
     } else {
         free(hr);
     }
