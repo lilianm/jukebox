@@ -117,11 +117,16 @@ int http_option_search(http_request_t *hr, char *name, stream_t *out)
 {
     unsigned int        i;
     http_option_t*      opt;
+    int                 len;
+
+    len = strlen(name);
 
     for(i = 0; i < hr->options.len; ++i) {
         opt = &hr->options.data[hr->options.offset + i];
-        if(strncasecmp(name, opt->name.data, stream_len(&opt->name)) == 0) {
-            *out = opt->name;
+        if(stream_len(&opt->name) != len)
+            continue;
+        if(strncasecmp(name, opt->name.data, len) == 0) {
+            *out = opt->value;
             return 0;
         }
     }
