@@ -329,16 +329,34 @@ static char not_found_response[] =
     "Content-Type: text/html" CRLF
     "Content-Length: 85" CRLF
     "Connection: Keep-Alive" CRLF
-    CRLF CRLF
+    CRLF
     "<html><head><title>404 Not found</title></head><body><H1>Not found</H1></body></head>";
+
+static char unauthorized_response[] =
+    "HTTP/1.1 401 Unauthorized" CRLF
+    "Content-Type: text/html" CRLF
+    "Content-Length: 91" CRLF
+    "WWW-Authenticate: Basic realm=\"\"" CRLF
+    "Connection: Keep-Alive" CRLF
+    CRLF
+    "<html><head><title>401 Unauthorized</title></head><body><H1>Unauthorized</H1></body></head>";
 
 static char internal_error_response[] =
     "HTTP/1.1 500 Internal error" CRLF
     "Content-Type: text/html" CRLF
     "Content-Length: 95" CRLF
     "Connection: Keep-Alive" CRLF
-    CRLF CRLF
+    CRLF
     "<html><head><title>500 Internal error</title></head><body><H1>Internal error</H1></body></head>";
+
+void http_send_401(http_request_t *hr)
+{
+    int sck;
+
+    sck = event_get_fd(hr->event);
+    event_output_send(hr->event, sck, 
+                      unauthorized_response, sizeof(unauthorized_response) - 1, NULL, NULL);
+}
 
 void http_send_404(http_request_t *hr)
 {
