@@ -45,7 +45,7 @@ static char base64conv[256] =
     -1, -1, -1, -1, -1, -1, -1, -1,
 };
 
-int convert_base64(char *txt, char *buffer, size_t size)
+int convert_base64(char *txt, size_t src_size, char *buffer, size_t size)
 {
     uint32_t v = 0;
     char     c;
@@ -55,8 +55,8 @@ int convert_base64(char *txt, char *buffer, size_t size)
 
     idx = 0;
 
-    while(*txt) {
-        char c = base64conv[*txt];
+    while(src_size) {
+        c = base64conv[(int) *txt];
         if(end && *txt != '=')
             return -1;
         if(c == -1) {
@@ -69,7 +69,7 @@ int convert_base64(char *txt, char *buffer, size_t size)
 
         idx++;
         if(idx == 4) {
-            if(size < 3 - end)
+            if((signed) size < 3 - end)
                 return -1;
             for(i = 3; i-- != end;) {
                 *buffer = (v >> (i * 8)) & 0xFF;
@@ -80,6 +80,7 @@ int convert_base64(char *txt, char *buffer, size_t size)
             idx = 0;
         }
         txt++;
+        src_size--;
     }
 
     if(size)
