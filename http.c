@@ -37,7 +37,7 @@ struct http_request {
     http_request_status_t  status;
 
     io_event_t            *event;
-    http_node_t           *root;
+    http_server_t         *server;
 
     stream_t               method;
     stream_t               uri;
@@ -54,6 +54,8 @@ struct http_server
 {
     io_event_t         *event;
     http_node_t        *root;
+
+    int                 nref;
 };
 
 void http_request_set_data(http_request_t *hr, void *data, free_session_f free)
@@ -404,6 +406,10 @@ static int http_header_decode(http_request_t *hr, int sck)
     stream_t            content_length;
     stream_t            data;
     stream_t            header;
+    const char         *remaining;
+    http_node_t        *root           = hr->server->root;
+    struct http_node   *current;
+    size_t              remaining_size;
 
     assert(hr);
 
@@ -433,10 +439,6 @@ static int http_header_decode(http_request_t *hr, int sck)
 
     print_debug("HTTP request %.*s", stream_len(&hr->uri), hr->uri.data);
 
-    const char            *remaining;
-    http_node_t           *root           = hr->root;
-    struct http_node      *current;
-    size_t                 remaining_size;
     current = http_node_search_callback(root, hr->uri.data, stream_len(&hr->uri),
                                         &remaining, &remaining_size);
     if(current) {
@@ -451,6 +453,9 @@ static int http_header_decode(http_request_t *hr, int sck)
         memmove(hr->header, data.data, hr->header_length);
         vector_option_reset(&hr->options);
     } else {
+        if(hr->data && hr->free_data)
+            hr->free_data(hr->data);
+        hr->server->nref--;
         free(hr);
     }
 
@@ -524,9 +529,11 @@ static void on_http_new_connection(io_event_t *ev, int sck,
     (void) addr;
     hs   = (http_server_t *) data;
 
-    hr        = http_request_new();
-    hr->root  = hs->root;
-    hr->event = event_client_add(sck, hr);
+    hr         = http_request_new();
+    hr->server = hs;
+    hr->event  = event_client_add(sck, hr);
+
+    hs->nref++;
 
     event_client_set_on_read(hr->event, on_http_client_data);
 }
