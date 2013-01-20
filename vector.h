@@ -43,6 +43,12 @@ static void vector_##name##_init(vector_##name##_t *v)                  \
 }                                                                       \
                                                                         \
 __attribute__((used))                                                   \
+static void vector_##name##_reset(vector_##name##_t *v)                 \
+{                                                                       \
+    v->len = 0;                                                         \
+}                                                                       \
+                                                                        \
+__attribute__((used))                                                   \
 static vector_##name##_t * vector_##name##_new(void)                    \
 {                                                                       \
     vector_##name##_t *ret;                                             \
