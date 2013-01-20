@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
-#include <glib.h>
 
 #include "http.h"
 #include "stream.h"
@@ -10,12 +9,13 @@
 #include "display.h"
 #include "event_output.h"
 #include "base64.h"
+#include "hash.h"
 
 #define CRLF "\r\n"
 
 typedef struct http_node {
     char                *name;
-    GHashTable          *child;
+    hash_t              *child;
     http_node_f          callback;
     void                *data;
 } http_node_t;
@@ -161,14 +161,14 @@ void http_options_decode(http_request_t *hr, stream_t *opts, int n)
     }
 }
 
-static gboolean http_str_equal(gconstpointer v1, gconstpointer v2)
+static int http_str_equal(void *v1, void *v2)
 {
     return strcmp(v1, v2) == 0;
 }
 
-static guint    http_str_hash(gconstpointer v)
+static uint32_t http_str_hash(void *v)
 {
-    guint        hash = 5381;
+    uint32_t     hash = 5381;
     const char  *text = v;
 
     for(; *text; text++) {
@@ -203,7 +203,7 @@ static struct http_node * http_node_search(struct http_node *n, const char *path
     *remaining = strchrnul(path, '/');
 
     if(*remaining == 0) {
-        next = g_hash_table_lookup(n->child, path);
+        next = hash_get(n->child, (void *)path);
         return next;
     }
 
@@ -212,7 +212,7 @@ static struct http_node * http_node_search(struct http_node *n, const char *path
     memcpy(name, path, name_size);
     name[name_size] = 0;
 
-    next = g_hash_table_lookup(n->child, name);
+    next = hash_get(n->child, name);
     if(next)
         return http_node_search(next, *remaining, remaining);
     *remaining = save_path;
@@ -260,7 +260,7 @@ static struct http_node * http_node_search_callback(struct http_node *n, const c
     memcpy(name, path, name_size);
     name[name_size] = 0;
 
-    next = g_hash_table_lookup(n->child, name);
+    next = hash_get(n->child, name);
     if(next)
         next = http_node_search_callback(next, *remaining, *remaining_len,
                                          remaining, remaining_len);
@@ -280,7 +280,7 @@ static struct http_node * http_node_malloc(const char *name, size_t len,
     struct http_node *n;
 
     n = (struct http_node *) malloc(sizeof(struct http_node));
-    n->child           = g_hash_table_new(http_str_hash, http_str_equal);
+    n->child           = hash_new(http_str_equal, http_str_hash, 8);
     n->name            = NULL;
     if(name) {
         n->name            = malloc(len + 1);
@@ -314,7 +314,7 @@ static struct http_node * http_node_create_path(struct http_node *n, const char 
         
         c = http_node_malloc(path, name_size, NULL, NULL);
 
-        g_hash_table_insert(n->child, c->name, c);
+        hash_add(n->child, c->name, c);
 
         n    = c;
         path = remaining;
@@ -592,7 +592,9 @@ http_server_t * http_server_new(uint16_t port)
 
 #include <stdio.h>
 
-static void http_dump_node(gpointer key, gpointer value, gpointer user_data)
+#if 0
+
+static void http_dump_node(void *key, void *value, void *user_data)
 {
     http_node_t *n;
     char        *name;
@@ -625,3 +627,5 @@ void http_dump_tree(http_server_t *server)
 
     http_dump_node("root", server->root, &level);
 }
+
+#endif
