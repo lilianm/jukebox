@@ -29,4 +29,8 @@ int hash_add(hash_t *h, void *key, void *d);
 
 void * hash_remove(hash_t *h, void *key);
 
+void hash_clean(hash_t *h);
+
+void hash_delete(hash_t *h);
+
 #endif /* __HASH_H__ */
