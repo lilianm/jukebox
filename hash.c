@@ -21,6 +21,7 @@ static inline void hash_entry_init(hash_t *h)
     for(i = 0; i < (h->size >> 2) - 1; ++i) {
         h->entry[h->size + i].next = &h->entry[h->size + i + 1];
     }
+    h->free_list = &h->entry[h->size];
 }
 
 void hash_init(hash_t *h, cmp_f cmp, hash_f hash, size_t size)
@@ -38,7 +39,6 @@ void hash_init(hash_t *h, cmp_f cmp, hash_f hash, size_t size)
     h->nb_entry  = 0;
     h->cmp_fn    = cmp;
     h->hash_fn   = hash;
-    h->free_list = &h->entry[size];
 
     hash_entry_init(h);
 }
@@ -178,7 +178,7 @@ int hash_add(hash_t *h, void *key, void *d)
         return 0;
     }
 
-    if(h->free_list == NULL) { // TODO Extend hash table
+    if(h->free_list == NULL) {
         hash_extend(h);
         return hash_add(h, key, d);
     }
@@ -244,11 +244,12 @@ void * hash_remove(hash_t *h, void *key)
         return d;
     }
 
+    d            = entry->data;
     *nentry      = entry->next;
     entry->next  = h->free_list;
     h->free_list = entry;
 
     h->nb_entry--;
 
-    return 0;
+    return d;
 }
