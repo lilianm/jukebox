@@ -253,3 +253,113 @@ void * hash_remove(hash_t *h, void *key)
 
     return d;
 }
+
+void hash_clean(hash_t *h)
+{
+    free(h->entry);
+    h->size     = 0;
+    h->nb_entry = 0;
+}
+
+void hash_delete(hash_t *h)
+{
+    hash_clean(h);
+    free(h);
+}
+
+#ifdef TEST
+
+#include <stdio.h>
+
+static uint32_t hash_str(void *e)
+{
+    uint32_t hash = 0;
+    char     *s = (char *)e;
+
+    while(*s) {
+        hash += *s;
+        s++;
+    }
+
+    return hash;
+}
+
+static int cmp_str(void *e1, void *e2)
+{
+    return (strcmp(e1, e2) == 0);
+}
+
+#define CHECK_EQ(test, value)                                           \
+({                                                                      \
+    nb_test++;                                                          \
+    if((test) == (value))                                               \
+        nb_success ++;                                                  \
+    else                                                                \
+        fprintf(stderr, "Line %i Need return " #value " for test " #test "\n",  __LINE__); \
+})
+
+#define CHECK_NEQ(test, value)                                          \
+({                                                                      \
+    nb_test++;                                                          \
+    if((test) != (value))                                               \
+        nb_success ++;                                                  \
+    else                                                                \
+        fprintf(stderr, "Line %i Need return " #value " for test " #test "\n",  __LINE__); \
+})
+
+int main(void)
+{
+    hash_t *h;
+    int     nb_test    = 0;
+    int     nb_success = 0;
+
+    CHECK_NEQ(h = hash_new(cmp_str, hash_str, 4), NULL);
+    CHECK_EQ(hash_add(h, "toto",  (void *) 1), 0);
+    CHECK_EQ(hash_add(h, "1toto", (void *) 2), 0);
+    CHECK_EQ(hash_add(h, "2toto", (void *) 3), 0);
+    CHECK_EQ(hash_add(h, "3toto", (void *) 4), 0);
+    CHECK_EQ(hash_add(h, "5toto", (void *) 5), 0);
+    CHECK_EQ(hash_add(h, "t5oto", (void *)15), 0);
+    CHECK_EQ(hash_add(h, "to5to", (void *)-1), 0);
+    CHECK_EQ(hash_add(h, "to5to", (void *)25), 0);
+
+    CHECK_EQ(hash_get(h, "to5to"), (void*)25);
+    CHECK_EQ(hash_get(h, "t5oto"), (void*)15);
+    CHECK_EQ(hash_get(h, "5toto"), (void*)5);
+    CHECK_EQ(hash_get(h, "3toto"), (void*)4);
+    CHECK_EQ(hash_get(h, "2toto"), (void*)3);
+    CHECK_EQ(hash_get(h, "1toto"), (void*)2);
+    CHECK_EQ(hash_get(h, "toto") , (void*)1);
+
+    CHECK_EQ(hash_remove(h, "tot5o"), (void*)0);
+    CHECK_EQ(hash_remove(h, "to5to"), (void*)25);
+    CHECK_EQ(hash_get(h, "to5to")   , (void*)0);
+    CHECK_EQ(hash_get(h, "t5oto")   , (void*)15);
+    CHECK_EQ(hash_remove(h, "5toto"), (void*)5);
+    CHECK_EQ(hash_get(h, "5toto")   , (void*)0);
+    CHECK_EQ(hash_get(h, "t5oto")   , (void*)15);
+    CHECK_EQ(hash_remove(h, "2toto"), (void*)3);
+    CHECK_EQ(hash_get(h, "2toto")   , (void*)0);
+    CHECK_EQ(hash_remove(h, "2toto"), (void*)0);
+    CHECK_EQ(hash_get(h, "4toto")   , (void*)0);
+    CHECK_EQ(hash_get(h, "t5oto")   , (void*)15);
+    CHECK_EQ(hash_get(h, "5toto")   , (void*)0);
+
+    hash_delete(h);
+
+    CHECK_NEQ(h = hash_new(cmp_str, hash_str, 4), NULL);
+
+    CHECK_EQ(hash_add(h, "t5oto", (void *)15), 0);
+    CHECK_EQ(hash_add(h, "to5to", (void *)-1), 0);
+    CHECK_EQ(hash_add(h, "tot5o", (void *)25), 0);
+
+    hash_delete(h);
+
+    fprintf(stderr, "Nb test success %i/%i\n", nb_success, nb_test);
+
+    if(nb_success != nb_test)
+        return 1;
+    return 0;
+}
+
+#endif /* TEST */
