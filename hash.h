@@ -1,6 +1,9 @@
 #ifndef __HASH_H__
 #define __HASH_H__
 
+#include <stdint.h>
+#include <stdlib.h>
+
 typedef int (*cmp_f)(void *e1, void *e2);
 
 typedef uint32_t (*hash_f)(void *e);
@@ -32,5 +35,11 @@ void * hash_remove(hash_t *h, void *key);
 void hash_clean(hash_t *h);
 
 void hash_delete(hash_t *h);
+
+/* Add hash/cmp function (DJB algo) */
+
+int hash_str_cmp(void *v1, void *v2);
+
+uint32_t hash_str_hash(void *v);
 
 #endif /* __HASH_H__ */

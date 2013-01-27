@@ -267,6 +267,25 @@ void hash_delete(hash_t *h)
     free(h);
 }
 
+int hash_str_cmp(void *v1, void *v2)
+{
+    return strcmp(v1, v2) == 0;
+}
+
+uint32_t hash_str_hash(void *v)
+{
+    uint32_t     hash = 5381;
+    const char  *text = v;
+
+    for(; *text; text++) {
+        hash *= 33;
+        hash += *text;
+    }
+
+    return hash;
+}
+
+
 #ifdef TEST
 
 #include <stdio.h>
