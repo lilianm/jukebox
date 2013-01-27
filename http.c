@@ -161,24 +161,6 @@ void http_options_decode(http_request_t *hr, stream_t *opts, int n)
     }
 }
 
-static int http_str_equal(void *v1, void *v2)
-{
-    return strcmp(v1, v2) == 0;
-}
-
-static uint32_t http_str_hash(void *v)
-{
-    uint32_t     hash = 5381;
-    const char  *text = v;
-
-    for(; *text; text++) {
-        hash *= 33;
-        hash += *text;
-    }
-
-    return hash;
-}
-
 static struct http_node * http_node_search(struct http_node *n, const char *path, const char **remaining)
 {
     char                *name;
@@ -280,7 +262,7 @@ static struct http_node * http_node_malloc(const char *name, size_t len,
     struct http_node *n;
 
     n = (struct http_node *) malloc(sizeof(struct http_node));
-    n->child           = hash_new(http_str_equal, http_str_hash, 8);
+    n->child           = hash_new(hash_str_cmp, hash_str_hash, 8);
     n->name            = NULL;
     if(name) {
         n->name            = malloc(len + 1);
