@@ -94,3 +94,47 @@ void mempool_free(mempool_t *pool, void *d)
     pool->free_list = list;
 }
 
+#ifdef TEST
+
+#include <stdio.h>
+
+#define CHECK_EQ(test, value)                                           \
+({                                                                      \
+    nb_test++;                                                          \
+    if((test) == (value))                                               \
+        nb_success ++;                                                  \
+    else                                                                \
+        fprintf(stderr, "Line %i Need return " #value " for test " #test "\n",  __LINE__); \
+})
+
+#define CHECK_NEQ(test, value)                                          \
+({                                                                      \
+    nb_test++;                                                          \
+    if((test) != (value))                                               \
+        nb_success ++;                                                  \
+    else                                                                \
+        fprintf(stderr, "Line %i Need return " #value " for test " #test "\n",  __LINE__); \
+})
+
+int main(void)
+{
+    mempool_t *pool;
+    void      *e[4];
+    int        nb_test    = 0;
+    int        nb_success = 0;
+    
+    CHECK_NEQ(pool = mempool_new(16, 2), NULL);
+    CHECK_NEQ(e[0] = mempool_alloc(pool), NULL);
+    CHECK_NEQ(e[1] = mempool_alloc(pool), NULL);
+    CHECK_NEQ(e[2] = mempool_alloc(pool), NULL);
+    mempool_free(pool, e[1]);
+    mempool_delete(pool);
+
+    fprintf(stderr, "Nb test success %i/%i\n", nb_success, nb_test);
+
+    if(nb_success != nb_test)
+        return 1;
+    return 0;
+}
+
+#endif /* TEST */
