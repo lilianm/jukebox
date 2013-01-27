@@ -548,9 +548,11 @@ static void on_http_new_connection(io_event_t *ev, int sck,
     (void) addr;
     hs   = (http_server_t *) data;
 
-    hr         = http_request_new();
-    hr->server = hs;
-    hr->event  = event_client_add(sck, hr);
+    hr            = http_request_new();
+    hr->server    = hs;
+    hr->event     = event_client_add(sck, hr);
+    hr->free_data = NULL;
+    hr->data      = NULL;
 
     hs->nref++;
 
