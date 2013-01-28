@@ -9,95 +9,129 @@
 #include "db.h"
 #include "time_tool.h"
 #include "display.h"
+#include "user.h"
+#include "hash.h"
 
 typedef struct channel {
-    int              fd; // add fd vector
+    struct channel  *next;
+    char            *name;
+    user_t          *user;
     struct timeval   start;
     mp3_stream_t    *stream;
 } channel_t;
 
-VECTOR_T(channel, channel_t);
-
-static vector_channel_t *channel;
+static channel_t        *channel_first = NULL;
+static hash_t           *channel_list  = NULL;
 
 static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
 {
-    vector_channel_t *channel;
     channel_t        *c;
     int64_t           pos;
     mp3_buffer_t      cur_buf;
     int               ret;
 
-    channel = (vector_channel_t *) data;
-
     (void) t;
+    (void) data;
 
-    VECTOR_REVERSE_EACH(channel, c) {
-        int running = 1;
-        while(running) {
+    c = channel_first;
+
+    while(c) {
+        int  nb;
+        int *fd;
+
+        nb = user_get_nb_socket(c->user);
+        fd = user_get_socket(c->user);
+
+        if(nb) {
             if(c->stream == NULL) {
                 // Get random song
                 c->stream = db_get_song();
             }
+
             pos = timeval_diff(now, &c->start);
             ret = mp3_stream_read(c->stream, pos, &cur_buf);
             if(ret == -1) {
-                print_error("Error on reading song fd=%i: %m", c->fd);
+                print_error("Error on reading song channel %s: %m", c->name);
                 mp3_stream_close(c->stream);
                 c->stream = NULL;
                 continue;
             }
+        }
 
+        for(fd = fd + nb -1; nb--; fd--) {
             retry:
-            ret = send(c->fd, cur_buf.buf, cur_buf.size, MSG_DONTWAIT | MSG_NOSIGNAL);
+            ret = send(*fd, cur_buf.buf, cur_buf.size, MSG_DONTWAIT | MSG_NOSIGNAL);
             if(ret == -1) {
                 if(errno == EINTR)
                     goto retry;
                         
-                running = 0;
                 if(errno == EAGAIN ||
                    errno == EWOULDBLOCK ||
                    errno == ENOBUFS) {
-                    print_debug("Skip %i bytes fd=%i", cur_buf.size, c->fd);
+                    print_debug("Skip %i bytes channel=%s fd=%i", cur_buf.size, c->name, *fd);
                     continue;
                 }
 
-                mp3_stream_close(c->stream);
-                print_debug("Close connection fd=%i: %m", c->fd);
-                vector_channel_delete(channel, c);
-                close(c->fd);
+                print_debug("Close connection channel=%s fd=%i: %m", c->name, *fd);
+                close(user_remove_socket(c->user, *fd));
                 continue;
             }
-            if(c->stream->offset == c->stream->data_size) {
-                print_debug("End of Song fd=%i", c->fd);
-                timeval_add_usec(&c->start, c->stream->pos);
-                mp3_stream_close(c->stream);
-                c->stream = NULL;
-                continue;
-            }
-            break;
         }
+        if(c->stream->offset == c->stream->data_size) {
+            print_debug("End of Song channel=%s", c->name);
+            timeval_add_usec(&c->start, c->stream->pos);
+            mp3_stream_close(c->stream);
+            c->stream = NULL;
+            continue;
+        }
+        c = c->next;
     }
 }
 
-int channel_create(int fd)
+static channel_t * channel_new(char *user)
 {
-    struct timeval now;
-    channel_t      c;
+    channel_t      *c;
+    struct timeval  now;
 
     gettimeofday(&now, NULL);
 
-    c.fd     = fd;
-    c.start  = now;
-    c.stream = NULL;
+    c = (channel_t *) malloc(sizeof(channel_t));
 
-    vector_channel_push(channel, &c);
+    c->stream     = NULL;
+    c->name       = strdup(user);
+    c->start      = now;
+    c->next       = channel_first;
+    c->user       = NULL;
+
+    channel_first = c;
+
+    hash_add(channel_list, c->name, c);
+
+
+    return c;
+}
+
+int channel_add_user(char *channel, user_t *u)
+{
+    channel_t      *c;
+
+    c = hash_get(channel_list, channel);
+    if(c) {
+        if(c->user != NULL && c->user != u)
+            return -1; // must manage this case
+
+        c->user = u;
+
+        return 0;
+    }
+    c = channel_new(channel);
+    c->user = u;
 
     return 0;
 }
 
 void channel_init(void)
 {   
-    channel = vector_channel_new();
-    mtimer_add(200, MTIMER_KIND_PERIODIC, channel_update, channel);
+    channel_list = hash_new(hash_str_cmp, hash_str_hash, 8);
+    mtimer_add(200, MTIMER_KIND_PERIODIC, channel_update, NULL);
 }

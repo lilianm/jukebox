@@ -1,7 +1,9 @@
 #ifndef __CHANNEL_H__
 #define __CHANNEL_H__
 
-int channel_create(int fd);
+#include "user.h"
+
+int channel_add_user(char *channel, user_t *u);
 
 void channel_init(void);
 
