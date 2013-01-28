@@ -15,6 +15,7 @@
 #include "http.h"
 #include "mstring.h"
 #include "stream.h"
+#include "user.h"
 
 static char basic_reponse[] =
     "HTTP/1.1 200 OK\r\n"
@@ -24,16 +25,24 @@ static char basic_reponse[] =
 
 static int on_stream(http_request_t *hr, void *data, const char *remaining, size_t size)
 {
-    int sck;
+    int     sck;
+    user_t *user;
 
     (void) remaining;
     (void) size;
     (void) data;
 
-    sck = http_request_detach(hr);
+    user = http_request_get_data(hr);
+    if(user == NULL)
+        return -1;
+
+    sck  = http_request_detach(hr);
 
     send(sck, basic_reponse, sizeof(basic_reponse) - 1, MSG_DONTWAIT);
-    channel_create(sck);
+    if(user_add_socket(user, sck) == -1) {
+        close(sck);
+    }
+    channel_add_user(user_get_name(user), user);
  
     return 0;
 }
@@ -148,11 +157,14 @@ static int on_root(http_request_t *hr, void *data, const char *remaining, size_t
 
 int auth_session(http_request_t *hr, char *login, char *password)
 {
-    (void) hr;
+    user_t *user;
 
     if(login && password &&
-       strcmp(login, password) == 0)
+       strcmp(login, password) == 0) {
+        user = user_get(login);
+        http_request_set_data(hr, user, NULL);
         return 0;
+    }
     return -1;
 }
 
