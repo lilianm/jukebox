@@ -49,7 +49,7 @@ void mempool_alloc_chunk(mempool_t *pool)
 {
     size_t  size;
     list_t *list;
-    int     i;
+    size_t  i;
 
     size  = pool->object_size * pool->chunk_size;
     size += sizeof(list_t);
