@@ -278,9 +278,6 @@ static inline char * utf8_convert_utf16_le(char *txt, size_t len)
 
 static inline char * convert_to_utf8(char *txt, size_t len, enum charset from)
 {
-    if(len == (unsigned)-1)
-        len = strlen((char *)txt);
-
     switch(from) {
     case ISO_8859_1:
         return utf8_convert_iso(txt, len);
@@ -514,9 +511,13 @@ int mp3_info_decode(mp3_info_t *info, char *file)
         return -1;
     }
 
-    frame_size = id3_v1_decode(&info_v1, buffer + size - sizeof(id3_v1_t), size);
-    if(frame_size)
-        size -= frame_size;
+    if(size > sizeof(id3_v1_t)) {
+        frame_size = id3_v1_decode(&info_v1,
+                                   buffer + size - sizeof(id3_v1_t),
+                                   sizeof(id3_v1_t));
+        if(frame_size)
+            size -= frame_size;
+    }
 
     for(i = 0; i < size;) {
         frame_size = mp3_frame_decode(&finfo, buffer + i, size - i);
@@ -533,12 +534,25 @@ int mp3_info_decode(mp3_info_t *info, char *file)
         i += frame_size;
     }
     if(info_v1) {
-        if(info->title == NULL)
-            info->title  = convert_to_utf8(info_v1->title, -1, ISO_8859_1);
-        if(info->album == NULL)
-            info->album  = convert_to_utf8(info_v1->album, -1, ISO_8859_1);
-        if(info->artist == NULL)
-            info->artist = convert_to_utf8(info_v1->artist, -1, ISO_8859_1);
+        size_t size;
+        if(info->title == NULL) {
+            size = strlen(info_v1->title);
+            if(size > sizeof(info_v1->title))
+                size = sizeof(info_v1->title);
+            info->title  = convert_to_utf8(info_v1->title, size, ISO_8859_1);
+        }
+        if(info->album == NULL) {
+            size = strlen(info_v1->album);
+            if(size > sizeof(info_v1->album))
+                size = sizeof(info_v1->album);
+            info->album  = convert_to_utf8(info_v1->album, size, ISO_8859_1);
+        }
+        if(info->artist == NULL) {
+            size = strlen(info_v1->artist);
+            if(size > sizeof(info_v1->artist))
+                size = sizeof(info_v1->artist);
+            info->artist = convert_to_utf8(info_v1->artist, size, ISO_8859_1);
+        }
         if(info->track == 0)
             info->track  = info_v1->track;
         if(info->years == 0)
