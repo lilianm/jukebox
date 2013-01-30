@@ -56,13 +56,9 @@ int auth_session(http_request_t *hr, char *login, char *password)
     return -1;
 }
 
-int main(int argc, char *argv[])
+http_server_t * jukebox_init(int port)
 {
-    int            port           = 8080;
-    http_server_t *server;
-
-    (void) argc;
-    (void) argv;
+   http_server_t *server;
 
     encoder_init("mp3", "encoded", 2);
     channel_init();
@@ -74,9 +70,11 @@ int main(int argc, char *argv[])
     http_map_directory(server, "/", "html");
     http_server_set_auth_cb(server, auth_session);
 
+    return server;
+}
+
+void jukebox_launch(void)
+{
     print_log("Jukebox started");
-
     event_loop();
-
-    return 0;
 }
