@@ -1,4 +1,4 @@
-çCC?=gcc
+CC?=gcc
 LD=gcc
 
 CFLAGS=-D_GNU_SOURCE -W -Wall -Wextra -Werror -g -I. -fPIC -std=gnu99 -DDEBUG
