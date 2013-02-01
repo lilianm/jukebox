@@ -21,8 +21,9 @@ static char basic_reponse[] =
 
 static int on_stream(http_request_t *hr, void *data, const char *remaining, size_t size)
 {
-    int     sck;
-    user_t *user;
+    int        sck;
+    user_t    *user;
+    channel_t *channel;
 
     (void) remaining;
     (void) size;
@@ -38,7 +39,8 @@ static int on_stream(http_request_t *hr, void *data, const char *remaining, size
     if(user_add_socket(user, sck) == -1) {
         close(sck);
     }
-    channel_add_user(user_get_name(user), user);
+    channel = channel_add_user(user_get_name(user), user);
+    user_set_channel(user, channel);
  
     return 0;
 }

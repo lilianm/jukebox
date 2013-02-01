@@ -2,6 +2,7 @@
 
 #include "user.h"
 #include "hash.h"
+#include "channel.h"
 
 #define MAX_SCK_BY_USER 4
 
@@ -9,6 +10,7 @@ struct user {
     char      *name;
     int        sck[MAX_SCK_BY_USER];
     int        nb_sck;
+    channel_t *channel;
 };
 
 static hash_t *users = NULL;
@@ -80,3 +82,15 @@ char * user_get_name(user_t *user)
 {
     return user->name;
 }
+
+
+void user_set_channel(user_t *user, channel_t *channel)
+{
+    user->channel = channel;
+}
+
+channel_t * user_get_channel(user_t *user)
+{
+    return user->channel;
+}
+
