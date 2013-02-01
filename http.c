@@ -440,7 +440,6 @@ static int http_header_decode(http_request_t *hr, int sck)
        hr->server->auth != NULL) {
         if(http_option_search(hr, "Authorization", &out) == 0 &&
            stream_find_chr(&out, ' ', NULL)              == 0) {
-            printf("test\n");
             if(convert_base64(out.data, stream_len(&out), buffer, sizeof(buffer)) == 0) {
                 login = buffer;
                 password = strchr(buffer, ':');
