@@ -12,13 +12,13 @@
 #include "user.h"
 #include "hash.h"
 
-typedef struct channel {
+struct channel {
     struct channel  *next;
     char            *name;
     user_t          *user;
     struct timeval   start;
     mp3_stream_t    *stream;
-} channel_t;
+};
 
 static channel_t        *channel_first = NULL;
 static hash_t           *channel_list  = NULL;
@@ -111,27 +111,35 @@ static channel_t * channel_new(char *user)
     return c;
 }
 
-int channel_add_user(char *channel, user_t *u)
+channel_t * channel_add_user(char *channel, user_t *u)
 {
     channel_t      *c;
 
     c = hash_get(channel_list, channel);
     if(c) {
         if(c->user != NULL && c->user != u)
-            return -1; // must manage this case
+            return NULL; // must manage this case
 
         c->user = u;
 
-        return 0;
+        return c;
     }
     c = channel_new(channel);
     c->user = u;
 
-    return 0;
+    return c;
 }
 
 void channel_init(void)
 {   
     channel_list = hash_new(hash_str_cmp, hash_str_hash, 8);
     mtimer_add(200, MTIMER_KIND_PERIODIC, channel_update, NULL);
+}
+
+int channel_next(channel_t *c)
+{
+    mp3_stream_close(c->stream);
+    c->stream = NULL;
+
+    return 0;
 }
