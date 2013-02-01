@@ -119,3 +119,13 @@ int http_map_directory(http_server_t *server, char *server_path, char *file_path
 {
     return http_node_new(server, server_path, on_mapping, file_path);
 }
+
+void http_send_reponse_and_dup(http_request_t *hr, char *content_type, void *buffer, size_t size)
+{
+    void *nbuf;
+
+    nbuf = malloc(size);
+    memcpy(nbuf, buffer, size);
+
+    http_send_reponse(hr, content_type, nbuf, size, (free_f)free, NULL);
+}
