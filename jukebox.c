@@ -64,7 +64,6 @@ http_server_t * jukebox_init(int port)
 
     encoder_init("mp3", "encoded", 2);
     channel_init();
-    encoder_scan();
     event_init();
 
     server = http_server_new(port);

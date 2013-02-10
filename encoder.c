@@ -136,6 +136,14 @@ typedef struct inode_cache_t {
 
 VECTOR_T(inode_cache, inode_cache_t);
 
+typedef struct encoder_data {
+    thread_pool_t              *pool;
+    // Replace by hash tab
+    vector_inode_cache_t        inode_cache;
+    string_t                    srcdir;
+    string_t                    dstdir;
+} encoder_data_t;
+
 int inode_cache_insert(vector_inode_cache_t *cache, ino_t ino, time_t mtime)
 {
     inode_cache_t       entry;
@@ -169,31 +177,18 @@ void scan(const unsigned char *src, time_t mtime, void *data)
     inode_cache_insert(inode_cache, buf.st_ino, mtime);
 }
 
-thread_pool_t              *pool;
-// Replace by hash tab
-vector_inode_cache_t        inode_cache;
-string_t                    srcdir;
-string_t                    dstdir;
-
-int encoder_scan(void)
+static void encoder_scan_dir(encoder_data_t *data, const struct timeval *now)
 {
     DIR                        *dp; 
     struct dirent              *dirp;
-
-    time_t                      cur_time;
-
     int                         scan_time    = 30; // 30s
 
-    print_debug("Encoder: scan new file");
-
-    cur_time = time(NULL);
-
-    dp = opendir(srcdir.txt);
+    dp = opendir(data->srcdir.txt);
     if(dp == NULL)
-        return 1;
+        return;
 
     while ((dirp = readdir(dp)) != NULL) {
-        encode_file_t *data;
+        encode_file_t *encode_data;
         string_t       name;
         string_t       srcfile;
         string_t       dstfile;
@@ -204,60 +199,85 @@ int encoder_scan(void)
            (name.len == 2 && memcmp(dirp->d_name, "..", 2) == 0))
             continue;
 
-        data = malloc(sizeof(encode_file_t) +
-                      name.len + srcdir.len + 1 + 1 +
-                      name.len + dstdir.len + 1 + 1);
+        encode_data = malloc(sizeof(encode_file_t) +
+                             name.len + data->srcdir.len + 1 + 1 +
+                             name.len + data->dstdir.len + 1 + 1);
 
-        srcfile = string_init_full(data->data, 0,
-                                   name.len + srcdir.len + 1 + 1, STRING_ALLOC_STATIC);
-        dstfile = string_init_full(data->data + srcfile.size, 0,
-                                   name.len + srcdir.len + 1 + 1, STRING_ALLOC_STATIC);
+        srcfile = string_init_full(encode_data->data, 0,
+                                   name.len + data->srcdir.len + 1 + 1, STRING_ALLOC_STATIC);
+        dstfile = string_init_full(encode_data->data + srcfile.size, 0,
+                                   name.len + data->srcdir.len + 1 + 1, STRING_ALLOC_STATIC);
 
-        srcfile   = string_concat(srcfile, srcdir);
+        srcfile   = string_concat(srcfile, data->srcdir);
         srcfile   = string_add_chr(srcfile, '/');
         srcfile   = string_concat(srcfile, name);
-        data->src = srcfile.txt;
+        encode_data->src = srcfile.txt;
 
-        dstfile   = string_concat(dstfile, dstdir);
+        dstfile   = string_concat(dstfile, data->dstdir);
         dstfile   = string_add_chr(dstfile, '/');
         dstfile   = string_concat(dstfile, name);
-        data->dst = dstfile.txt;
+        encode_data->dst = dstfile.txt;
 
         struct stat buf;
 
-        stat(data->src, &buf);            
+        stat(encode_data->src, &buf);            
 
-        data->mtime = buf.st_mtime;
+        encode_data->mtime = buf.st_mtime;
 
-        if(!S_ISREG(buf.st_mode) || buf.st_mtime + (scan_time * 2) > cur_time ||
-           inode_cache_insert(&inode_cache, buf.st_ino, buf.st_mtime) == -1) {
-            /* Check if is dir and scan it */
-            free(data);
+
+        if(S_ISDIR(buf.st_mode)) {
+            string_t       srcdir_save;
+
+            srcdir_save = data->srcdir;
+            data->srcdir = srcfile;
+            encoder_scan_dir(data, now);
+            data->srcdir = srcdir_save;
+
+            free(encode_data);
+
             continue;
         }
 
-        thread_pool_add(pool, encode_th, data);
+        if(!S_ISREG(buf.st_mode) || buf.st_mtime + (scan_time * 2) > now->tv_sec ||
+           inode_cache_insert(&data->inode_cache, buf.st_ino, buf.st_mtime) == -1) {
+            free(encode_data);
+            continue;
+        }
+
+        thread_pool_add(data->pool, encode_th, encode_data);
     }
     closedir(dp);
+}
+ 
+void encoder_scan(mtimer_t *timer, const struct timeval *now, void *void_data)
+{
+    encoder_data_t             *data         = (encoder_data_t *) void_data;
+
+    (void) timer;
+
+    print_debug("Encoder: scan new file");
+
+    encoder_scan_dir(data, now);
 
     print_debug("Encoder: scan end");
 
-    return 0;
+    return;
 }
- 
+
+encoder_data_t data;
 
 void encoder_init(char *src, char *dst, int nb_thread)
 {
     db_init();
 
-    srcdir = string_dup(string_init_static(src));
-    dstdir = string_dup(string_init_static(dst));
+    data.srcdir = string_dup(string_init_static(src));
+    data.dstdir = string_dup(string_init_static(dst));
     
-    vector_inode_cache_init(&inode_cache);
+    vector_inode_cache_init(&data.inode_cache);
 
-    db_scan_song(scan, &inode_cache);
+    db_scan_song(scan, &data.inode_cache);
 
-    pool = thread_pool_new(nb_thread);
+    data.pool = thread_pool_new(nb_thread);
 
-    mtimer_add(30000, MTIMER_KIND_PERIODIC, (mtimer_cb_f)encoder_scan, NULL);
+    mtimer_add(30000, MTIMER_KIND_PERIODIC, encoder_scan, &data);
 }
