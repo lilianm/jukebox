@@ -14,4 +14,11 @@ Jukebox::Http::node_new(http_server, "/api/basic/next") { |hdl,data,remaining, c
   0
 }
 
+Jukebox::Http::node_new(http_server, "/api/basic/previous") { |hdl,data,remaining, channel|
+  channel.previous();
+  page =  "<head><title>Previous</title></head><body><h1>Previous</h1></body>"
+  Jukebox::Http::send_reponse(hdl, "text/html", page)
+  0
+}
+
 Jukebox::launch();

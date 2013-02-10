@@ -11,6 +11,9 @@
 #include "display.h"
 #include "user.h"
 #include "hash.h"
+#include "song_queue.h"
+
+#define MAX_CHANNEL_QUEUE_SIZE 128
 
 struct channel {
     struct channel  *next;
@@ -18,6 +21,8 @@ struct channel {
     user_t          *user;
     struct timeval   start;
     mp3_stream_t    *stream;
+
+    song_queue_t    *queue;
 };
 
 static channel_t        *channel_first = NULL;
@@ -44,8 +49,16 @@ static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
 
         if(nb) {
             if(c->stream == NULL) {
-                // Get random song
-                c->stream = db_get_song(NULL);
+                int mid;
+                mid = song_queue_next(c->queue);
+                if(mid == -1) {
+                    // Get random song
+                    c->stream = db_get_song(&mid);
+                    song_queue_add(c->queue, mid);
+                    song_queue_next(c->queue);
+                } else {
+                    c->stream = db_get_song(&mid);
+                }
             }
 
             pos = timeval_diff(now, &c->start);
@@ -102,6 +115,7 @@ static channel_t * channel_new(char *user)
     c->start      = now;
     c->next       = channel_first;
     c->user       = NULL;
+    c->queue      = song_queue_new(MAX_CHANNEL_QUEUE_SIZE);
 
     channel_first = c;
 
@@ -140,6 +154,21 @@ int channel_next(channel_t *c)
 {
     mp3_stream_close(c->stream);
     c->stream = NULL;
+
+    return 0;
+}
+
+int channel_previous(channel_t *c)
+{
+    int mid;
+
+    mid = song_queue_previous(c->queue);
+    if(mid == -1)
+        return -1;
+
+    mp3_stream_close(c->stream);
+    c->stream = db_get_song(&mid);
+    song_queue_add(c->queue, mid);
 
     return 0;
 }

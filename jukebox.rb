@@ -20,6 +20,7 @@ module Jukebox_wrapping
   attach_function :user_get_channel, [:pointer], :pointer
 
   attach_function :channel_next, [:pointer], :int
+  attach_function :channel_previous, [:pointer], :int
 end
 
 
@@ -39,6 +40,10 @@ module Jukebox
 
     def next()
       Jukebox_wrapping::channel_next(@hdl);
+    end
+
+    def previous()
+      Jukebox_wrapping::channel_previous(@hdl);
     end
   end
 
