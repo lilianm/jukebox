@@ -51,7 +51,7 @@ int print_log(char *txt, ...)
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[32minfo\033[0m] "));
-    str = string_add_format(str, txt, ap);
+    str = string_add_vformat(str, txt, ap);
     string_dump(str);
     save_trace(str);
 
@@ -74,7 +74,7 @@ int print_warning(char *txt, ...)
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[33mwarning\033[0m] "));
-    str = string_add_format(str, txt, ap);
+    str = string_add_vformat(str, txt, ap);
     string_dump(str);
     save_trace(str);
 
@@ -97,7 +97,7 @@ int print_error(char *txt, ...)
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[31merror\033[0m] "));
-    str = string_add_format(str, txt, ap);
+    str = string_add_vformat(str, txt, ap);
     string_dump(str);
     save_trace(str);
 
@@ -120,7 +120,7 @@ int print_debug(char *txt, ...)
     str = string_concat(str, STRING_INIT_CSTR("["));
     str = string_add_date(str, "%a, %d %b %y %T %z");
     str = string_concat(str, STRING_INIT_CSTR("] [\033[32mdebug\033[0m] "));
-    str = string_add_format(str, txt, ap);
+    str = string_add_vformat(str, txt, ap);
 #ifdef DEBUG
     string_dump(str);
 #endif /* DEBUG */        

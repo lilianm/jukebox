@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <stdarg.h>
 
 typedef enum string_alloc_t {
     STRING_ALLOC_DYNAMIC,
@@ -123,7 +124,7 @@ static inline string_t string_add_date(string_t str, char *format)
     return str;
 }
 
-static inline string_t string_add_format(string_t str, char *format, va_list ap)
+static inline string_t string_add_vformat(string_t str, char *format, va_list ap)
 {
     size_t    len;
 
@@ -131,6 +132,20 @@ static inline string_t string_add_format(string_t str, char *format, va_list ap)
     str.len += len;
 
     return str;
+}
+
+static inline string_t string_add_format(string_t str, char *format, ...)
+{
+    va_list  ap;
+    string_t s;
+
+    va_start(ap, format);
+
+    s = string_add_vformat(str, format, ap);
+
+    va_end(ap);
+
+    return s;
 }
 
 static inline int string_cmp(string_t s1, string_t s2)
