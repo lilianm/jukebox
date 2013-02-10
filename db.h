@@ -34,6 +34,6 @@ typedef void (*scan_fn)(const unsigned char *src, time_t mtime, void *data);
 
 void db_scan_song(scan_fn fn, void *data);
 
-mp3_stream_t * db_get_song(void);
+mp3_stream_t * db_get_song(int *mid);
 
 #endif /* __DB_H__ */

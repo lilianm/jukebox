@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "db.h"
+#include "mstring.h"
 
 #include <string.h>
 
@@ -53,23 +54,35 @@ void db_scan_song(scan_fn fn, void *data)
     }
 }
 
-mp3_stream_t * db_get_song(void)
+mp3_stream_t * db_get_song(int *mid)
 {
     const unsigned char  *dst;
-    mp3_stream_t         *stream  = NULL;
-    sqlite3_stmt         *stmt    = NULL;
-    static const char     req[]   = "SELECT dst FROM library WHERE status=5 ORDER BY RANDOM() LIMIT 1";
-    int                   running = 1;
+    mp3_stream_t         *stream      = NULL;
+    sqlite3_stmt         *stmt        = NULL;
+    char                  buffer[1024];
+    int                   running     = 1;
+    string_t              req;
+
+
+    req = string_init_full(buffer, 0, sizeof(buffer), STRING_ALLOC_STATIC);
+    req = string_concat(req, STRING_INIT_CSTR("SELECT mid, dst FROM library WHERE status=5"));
+    if(mid && *mid != -1) {
+        req = string_add_format(req, " AND mid=%i", *mid);
+    } else {
+        req = string_concat(req, STRING_INIT_CSTR(" ORDER BY RANDOM() LIMIT 1"));
+    }
 
     do {
-        sqlite3_prepare_v2(db, req, sizeof(req), &stmt, NULL);
+        sqlite3_prepare_v2(db, req.txt, req.len, &stmt, NULL);
 
         while(running) {
             int s;
             s = sqlite3_step(stmt);
             switch(s) {
             case SQLITE_ROW:
-                dst = sqlite3_column_text(stmt, 0);
+                if(mid)
+                    *mid = sqlite3_column_int(stmt, 0);
+                dst = sqlite3_column_text(stmt, 1);
                 stream = mp3_stream_open((char*)dst);
                 if(stream != NULL) {
                     running = 0;

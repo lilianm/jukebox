@@ -45,7 +45,7 @@ static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
         if(nb) {
             if(c->stream == NULL) {
                 // Get random song
-                c->stream = db_get_song();
+                c->stream = db_get_song(NULL);
             }
 
             pos = timeval_diff(now, &c->start);
