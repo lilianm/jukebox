@@ -453,6 +453,7 @@ static void mp3_save_tag(uint32_t id, char *str, size_t size, void *data)
             info->album = id3_v2_get_string(str, size);
         break;
     case ID3_ID('T', 'P', 'E', '1'):
+    case ID3_ID('T', 'P', 'E', '2'):
         if(info->artist == NULL)
             info->artist = id3_v2_get_string(str, size);
         break;
