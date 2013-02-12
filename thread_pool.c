@@ -1,41 +1,69 @@
 #include <pthread.h>
 
 #include "thread_pool.h"
-#include "vector.h"
+#include "mempool.h"
 
-typedef struct thread_cmd_t {
+typedef struct thread_cmd thread_cmd_t;
+
+struct thread_cmd {
+    thread_cmd_t        *next;
     thread_f             fn;
     void                *data;
-} thread_cmd_t;
-
-VECTOR_T(thread, thread_cmd_t);
+};
 
 typedef struct queue {
-    pthread_mutex_t mutex;
-    pthread_cond_t  cond;
-    vector_thread_t cmd;
+    pthread_mutex_t  mutex;
+    pthread_cond_t   cond;
+    mempool_t       *pool;
+    thread_cmd_t    *first;
+    thread_cmd_t    *last;
 } queue_t;
 
 void queue_init(queue_t *q)
 {
-    vector_thread_init(&q->cmd);
+    q->pool  = mempool_new(sizeof(thread_cmd_t), 16);
+    q->first = NULL;
+    q->last  = NULL;
     pthread_cond_init(&q->cond, NULL);
     pthread_mutex_init(&q->mutex, NULL);
 }
 
 void queue_add(queue_t *q, thread_cmd_t *cmd)
 {
+    thread_cmd_t *ncmd;
+
     pthread_mutex_lock(&q->mutex);
-    vector_thread_push(&q->cmd, cmd);
+    ncmd = mempool_alloc(q->pool);
+    *ncmd = *cmd;
+    ncmd->next = NULL;
+    if(q->last == NULL) {
+        q->first = ncmd;
+    } else {
+        q->last->next = ncmd;
+    }
+    q->last = ncmd;
     pthread_cond_signal(&q->cond);
     pthread_mutex_unlock(&q->mutex);
 }
 
 void queue_get(queue_t *q, thread_cmd_t *cmd)
 {
+    thread_cmd_t *next;
+
     pthread_mutex_lock(&q->mutex);
-    while(vector_thread_shift(&q->cmd, cmd) == -1)
+    while(q->first == NULL)
         pthread_cond_wait(&q->cond, &q->mutex);
+
+    next = q->first->next;
+    *cmd = *q->first;
+
+    mempool_free(q->pool, q->first);
+    if(q->first == q->last) {
+        q->first = NULL;
+        q->last  = NULL;
+    } else {
+        q->first = next;
+    }
     pthread_mutex_unlock(&q->mutex);
 }
 
