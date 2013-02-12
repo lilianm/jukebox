@@ -31,6 +31,27 @@ mempool_t * mempool_new(size_t object_size, size_t chunk_size)
     return pool;    
 }
 
+#ifdef DEBUG
+
+void mempool_delete(mempool_t *pool)
+{
+    free(pool);
+}
+
+void * mempool_alloc(mempool_t *pool)
+{
+    return malloc(pool->object_size);
+}
+
+void mempool_free(mempool_t *pool, void *d)
+{
+    (void) pool;
+
+    free(d);
+}
+
+#else
+
 void mempool_delete(mempool_t *pool)
 {
     list_t *cur;
@@ -43,6 +64,8 @@ void mempool_delete(mempool_t *pool)
         free(cur);
         cur = next;
     }
+
+    free(pool);
 }
 
 void mempool_alloc_chunk(mempool_t *pool)
@@ -93,6 +116,8 @@ void mempool_free(mempool_t *pool, void *d)
     list->next      = pool->free_list;
     pool->free_list = list;
 }
+
+#endif /* DEBUG */
 
 #ifdef TEST
 
