@@ -5,7 +5,6 @@
 #include "channel.h"
 #include "mtimer.h"
 #include "mp3.h"
-#include "vector.h"
 #include "db.h"
 #include "time_tool.h"
 #include "display.h"
