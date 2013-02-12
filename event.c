@@ -365,7 +365,9 @@ static int64_t event_timer_manage(struct timeval *now)
 
         current->timer.on_timer(current, now, current->data);
         if(current->timer.kind == EVENT_TIMER_KIND_PERIODIC) {
-            current->timer.next_expiration += current->timer.period * 1000;
+            do {
+                current->timer.next_expiration += current->timer.period * 1000;
+            } while(cur + 1000 > current->timer.next_expiration);
             event_timer_insert(current);
         } else {
             free(current);
