@@ -36,7 +36,7 @@ struct http_request {
     event_output_t         output;
     http_request_status_t  status;
 
-    io_event_t            *event;
+    event_t               *event;
     http_server_t         *server;
 
     stream_t               method;
@@ -52,7 +52,7 @@ struct http_request {
 
 struct http_server
 {
-    io_event_t         *event;
+    event_t            *event;
     http_node_t        *root;
     auth_session_f      auth;
 
@@ -331,7 +331,7 @@ int http_node_new(http_server_t *server, char *path, http_node_f cb, void *data)
     return 0;
 }
 
-void http_server_init(http_server_t *hs, io_event_t *ev, http_node_t *root)
+void http_server_init(http_server_t *hs, event_t *ev, http_node_t *root)
 {
     hs->event = ev;
     hs->root  = root;
@@ -479,7 +479,7 @@ static int http_header_decode(http_request_t *hr, int sck)
     return 0;
 }
 
-static void on_http_client_data(io_event_t *ev, int sck, void *data)
+static void on_http_client_data(event_t *ev, int sck, void *data)
 {
     int                 ret;
     http_request_t     *hr;
@@ -536,7 +536,7 @@ void http_send_reponse(http_request_t *hr, char *content_type, void *buffer, siz
     event_output_send(hr->event, sck, buffer, size, free_cb, user_data);
 }
 
-static void on_http_new_connection(io_event_t *ev, int sck,
+static void on_http_new_connection(event_t *ev, int sck,
                                    struct sockaddr_in *addr, void *data)
 {
     http_request_t *hr;
@@ -560,7 +560,7 @@ static void on_http_new_connection(io_event_t *ev, int sck,
 http_server_t * http_server_new(uint16_t port)
 {
     http_server_t *hs;
-    io_event_t    *ev;
+    event_t       *ev;
     http_node_t   *root;
 
     hs   = (http_server_t*) malloc(sizeof(http_server_t));

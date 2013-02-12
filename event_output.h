@@ -31,7 +31,7 @@ event_output_t * event_output_new(void);
 
 void event_output_init(event_output_t *output);
 
-int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f free_cb, void *user_data);
+int event_output_send(event_t *ev, int sck, void *data, size_t size, free_f free_cb, void *user_data);
 
 void event_output_clean(event_output_t *output);
 

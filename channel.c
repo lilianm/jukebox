@@ -3,8 +3,8 @@
 #include <unistd.h>
 
 #include "channel.h"
-#include "mtimer.h"
 #include "mp3.h"
+#include "event.h"
 #include "db.h"
 #include "time_tool.h"
 #include "display.h"
@@ -26,7 +26,7 @@ struct channel {
 static channel_t        *channel_first = NULL;
 static hash_t           *channel_list  = NULL;
 
-static void channel_update(mtimer_t *t, const struct timeval *now, void *data)
+static void channel_update(event_t *t, const struct timeval *now, void *data)
 {
     channel_t        *c;
     int64_t           pos;
@@ -145,7 +145,7 @@ channel_t * channel_add_user(char *channel, user_t *u)
 void channel_init(void)
 {   
     channel_list = hash_new(hash_str_cmp, hash_str_hash, 8);
-    mtimer_add(200, MTIMER_KIND_PERIODIC, channel_update, NULL);
+    event_timer_add(200, EVENT_TIMER_KIND_PERIODIC, channel_update, NULL);
 }
 
 int channel_next(channel_t *c)

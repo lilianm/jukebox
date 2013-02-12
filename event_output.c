@@ -41,7 +41,7 @@ void event_output_free(event_output_t *output)
     free(output);
 }
 
-static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
+static void event_output_send_callback(event_t *ev, int sck, void *data_user)
 {
     event_output_t *output;
     int             ret         = -1;
@@ -111,7 +111,7 @@ static void event_output_send_callback(io_event_t *ev, int sck, void *data_user)
     }
 }
 
-int event_output_send(io_event_t *ev, int sck, void *data, size_t size, free_f free_cb, void *user_data)
+int event_output_send(event_t *ev, int sck, void *data, size_t size, free_f free_cb, void *user_data)
 {
     event_output_t *output;
     int             ret         = -1;

@@ -11,9 +11,9 @@
 #include "thread_pool.h"
 #include "db.h"
 #include "mstring.h"
-#include "mtimer.h"
 #include "display.h"
 #include "hash.h"
+#include "event.h"
 
 typedef struct encode_file_t {
     char   *src;
@@ -268,7 +268,7 @@ static void encoder_scan_dir(encoder_data_t *data, const struct timeval *now)
     closedir(dp);
 }
  
-void encoder_scan(mtimer_t *timer, const struct timeval *now, void *void_data)
+void encoder_scan(event_t *timer, const struct timeval *now, void *void_data)
 {
     encoder_data_t             *data         = (encoder_data_t *) void_data;
 
@@ -298,5 +298,5 @@ void encoder_init(char *src, char *dst, int nb_thread)
 
     data.pool = thread_pool_new(nb_thread);
 
-    mtimer_add(30000, MTIMER_KIND_PERIODIC, encoder_scan, &data);
+    event_timer_add(30000, EVENT_TIMER_KIND_PERIODIC, encoder_scan, &data);
 }
