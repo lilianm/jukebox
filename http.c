@@ -25,7 +25,6 @@ typedef struct http_option_t {
 } http_option_t;
 
 VECTOR_T(option, http_option_t);
-VECTOR_T(line, stream_t);
 
 typedef enum http_request_status {
     HTTP_REQUEST_STATUS_DETACH = 1,
@@ -92,7 +91,7 @@ int http_request_detach(http_request_t *hr)
     return fd;
 }
 
-void http_request_init(http_request_t *hr)
+static inline void http_request_init(http_request_t *hr)
 {
     event_output_init(&hr->output);
     vector_option_init(&hr->options);
@@ -100,7 +99,7 @@ void http_request_init(http_request_t *hr)
     hr->status        = 0;
 }
 
-http_request_t * http_request_new(void)
+static inline http_request_t * http_request_new(void)
 {
     http_request_t *hr;
 
@@ -111,7 +110,7 @@ http_request_t * http_request_new(void)
     return hr;
 }
 
-void http_request_line_decode(http_request_t *hr, stream_t *line)
+static inline void http_request_line_decode(http_request_t *hr, stream_t *line)
 {
     assert(hr);
     assert(line);
@@ -123,7 +122,7 @@ void http_request_line_decode(http_request_t *hr, stream_t *line)
     /* TODO: Check HTTP version */
 }
 
-int http_option_search(http_request_t *hr, char *name, stream_t *out)
+static inline int http_option_search(http_request_t *hr, char *name, stream_t *out)
 {
     unsigned int        i;
     http_option_t*      opt;
@@ -143,21 +142,18 @@ int http_option_search(http_request_t *hr, char *name, stream_t *out)
     return -1;
 }
 
-void http_options_decode(http_request_t *hr, stream_t *opts, int n)
+static inline void http_options_decode(http_request_t *hr, stream_t *lines)
 {
-    int                 i;
     http_option_t       opt;
 
     assert(hr);
-    assert(opts);
+    assert(lines);
 
-    for(i = 0; i < n; ++i) {
-        opt.value = opts[i];
-        stream_find_chr(&opt.value, ':', &opt.name);
-        stream_skip(&opt.value, 1);
-        stream_strip(&opt.value);
-        vector_option_push(&hr->options, &opt);
-    }
+    opt.value = *lines;
+    stream_find_chr(&opt.value, ':', &opt.name);
+    stream_skip(&opt.value, 1);
+    stream_strip(&opt.value);
+    vector_option_push(&hr->options, &opt);
 }
 
 static struct http_node * http_node_search(struct http_node *n, const char *path, const char **remaining)
@@ -391,7 +387,6 @@ void http_send_500(http_request_t *hr)
 
 static int http_header_decode(http_request_t *hr, int sck)
 {
-    vector_line_t       opt;
     stream_t            line;
     stream_t            content_length;
     stream_t            data;
@@ -415,15 +410,12 @@ static int http_header_decode(http_request_t *hr, int sck)
         return -1;
     stream_expand(&header, 2);
 
-    vector_line_init(&opt);
-    while(stream_find_mem(&header, "\r\n", 2, &line) != -1)
-    {
-        vector_line_push(&opt, &line);
-    }
+    stream_find_mem(&header, "\r\n", 2, &line);
+    http_request_line_decode(hr, &line);
 
-    http_request_line_decode(hr, &opt.data[0]);
-    http_options_decode(hr, &opt.data[1], opt.len - 1);
-    vector_line_clean(&opt);
+    while(stream_find_mem(&header, "\r\n", 2, &line) != -1) {
+        http_options_decode(hr, &line);
+    }
 
     if(http_option_search(hr, "Content-Length", &content_length) == -1) {
         hr->content_length = 0;
