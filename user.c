@@ -2,7 +2,6 @@
 
 #include "user.h"
 #include "hash.h"
-#include "channel.h"
 
 #define MAX_SCK_BY_USER 4
 

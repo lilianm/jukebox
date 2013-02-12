@@ -9,7 +9,6 @@
 #include "db.h"
 #include "time_tool.h"
 #include "display.h"
-#include "user.h"
 #include "hash.h"
 #include "song_queue.h"
 

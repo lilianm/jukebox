@@ -7,7 +7,6 @@
 #include "event.h"
 #include "vector.h"
 #include "display.h"
-#include "event_output.h"
 #include "base64.h"
 #include "hash.h"
 

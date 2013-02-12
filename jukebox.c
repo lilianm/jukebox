@@ -9,7 +9,6 @@
 #include "display.h"
 #include "channel.h"
 #include "event.h"
-#include "http.h"
 #include "user.h"
 #include "http_tool.h"
 
