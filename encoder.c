@@ -6,13 +6,14 @@
 #include <sys/wait.h>
 #include <time.h>
 
-#include "vector.h"
+#include "mempool.h"
 #include "mp3.h"
 #include "thread_pool.h"
 #include "db.h"
 #include "mstring.h"
 #include "mtimer.h"
 #include "display.h"
+#include "hash.h"
 
 typedef struct encode_file_t {
     char   *src;
@@ -129,49 +130,67 @@ void encode_th(void *data)
     free(data);
 }
 
-typedef struct inode_cache_t {
+typedef struct inode_cache_entry {
     ino_t  ino;
     time_t mtime;
-} inode_cache_t;
+} inode_cache_entry_t;
 
-VECTOR_T(inode_cache, inode_cache_t);
+typedef struct inode_cache {
+    hash_t                      inode_hash;
+    mempool_t                  *inode_pool;
+} inode_cache_t;
 
 typedef struct encoder_data {
     thread_pool_t              *pool;
-    // Replace by hash tab
-    vector_inode_cache_t        inode_cache;
+    inode_cache_t               inode_cache;
     string_t                    srcdir;
     string_t                    dstdir;
 } encoder_data_t;
 
-int inode_cache_insert(vector_inode_cache_t *cache, ino_t ino, time_t mtime)
+static uint32_t inode_cache_hash(ino_t *ino)
 {
-    inode_cache_t       entry;
-    inode_cache_t      *pentry;
+    return *ino;
+}
 
-    VECTOR_EACH(cache, pentry) {
-        if(pentry->ino == ino) {
-            if(pentry->mtime == mtime)
-                return -1;
-            // update
-            pentry->mtime = mtime;
-            return 0;
-        }
+static int inode_cache_cmp(ino_t *ino1, ino_t *ino2)
+{
+    return (*ino1 == *ino2);
+}
+
+void inode_cache_init(inode_cache_t *cache)
+{
+    cache->inode_pool = mempool_new(sizeof(inode_cache_entry_t), 64);
+    hash_init(&cache->inode_hash, (cmp_f)inode_cache_cmp, (hash_f)inode_cache_hash, 32);
+}
+
+int inode_cache_insert(inode_cache_t *cache, ino_t ino, time_t mtime)
+{
+    inode_cache_entry_t *entry;
+
+    entry = hash_get(&cache->inode_hash, &ino);
+    if(entry) {
+        if(entry->mtime == mtime)
+            return -1;
+        // update
+        entry->mtime = mtime;
+        return 0;
     }
     
-    entry.ino   = ino;
-    entry.mtime = mtime;
+    entry = mempool_alloc(cache->inode_pool);
 
-    vector_inode_cache_push(cache, &entry);
+    entry->ino   = ino;
+    entry->mtime = mtime;
+
+    hash_add(&cache->inode_hash, &entry->ino, entry);
 
     return 0;
 }
 
 void scan(const unsigned char *src, time_t mtime, void *data)
 {
-    vector_inode_cache_t       *inode_cache = data;
+    inode_cache_t *inode_cache = data;
+    struct stat    buf;
 
-    struct stat buf;
     stat((const char *)src, &buf);
 
     inode_cache_insert(inode_cache, buf.st_ino, mtime);
@@ -272,8 +291,8 @@ void encoder_init(char *src, char *dst, int nb_thread)
 
     data.srcdir = string_dup(string_init_static(src));
     data.dstdir = string_dup(string_init_static(dst));
-    
-    vector_inode_cache_init(&data.inode_cache);
+
+    inode_cache_init(&data.inode_cache);
 
     db_scan_song(scan, &data.inode_cache);
 
