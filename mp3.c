@@ -556,8 +556,17 @@ int mp3_info_decode(mp3_info_t *info, char *file)
         }
         if(info->track == 0)
             info->track  = info_v1->track;
-        if(info->years == 0)
-            info->years  = atoi(info_v1->years);
+        if(info->years == 0) {
+            char years[5];
+
+            years[0] = info_v1->years[0];
+            years[1] = info_v1->years[1];
+            years[2] = info_v1->years[2];
+            years[3] = info_v1->years[3];
+            years[4] = 0;
+
+            info->years  = atoi(years);
+        }
     }
 
     munmap(buffer, real_size);
