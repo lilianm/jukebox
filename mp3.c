@@ -163,27 +163,27 @@ static inline char * utf8_code_convert_code(unsigned int code, char *pos)
 {
     switch(code) {
     case 0x10000 ... 0x1FFFF:
-        *pos = 0xF0 + ((code >> 18) & 0x0F);
+        *pos = 0xF0 + ((code >> 18) & 0x07);
         pos++;
-        *pos = 0x80 + ((code >> 12) & 0x7F);
+        *pos = 0x80 + ((code >> 12) & 0x3F);
         pos++;
-        *pos = 0x80 + ((code >>  6) & 0x7F);
+        *pos = 0x80 + ((code >>  6) & 0x3F);
         pos++;
-        *pos = 0x80 + ((code >>  0) & 0x7F);
+        *pos = 0x80 + ((code >>  0) & 0x3F);
         pos++;
         break;
     case 0x800   ... 0xFFFF:
-        *pos = 0xE0 + ((code >> 12) & 0x1F);
+        *pos = 0xE0 + ((code >> 12) & 0x0F);
         pos++;
-        *pos = 0x80 + ((code >>  6) & 0x7F);
+        *pos = 0x80 + ((code >>  6) & 0x3F);
         pos++;
-        *pos = 0x80 + ((code >>  0) & 0x7F),
+        *pos = 0x80 + ((code >>  0) & 0x3F),
         pos++;
         break;
     case 0x80    ... 0x7FF:
-        *pos = 0xC0 | ((code >>  6) & 0x3F);
+        *pos = 0xC0 | ((code >>  6) & 0x1F);
         pos++;
-        *pos = 0x80 | ((code >>  0) & 0x7F);
+        *pos = 0x80 | ((code >>  0) & 0x3F);
         pos++;
         break;
     case 0       ... 0x7F:
@@ -194,12 +194,15 @@ static inline char * utf8_code_convert_code(unsigned int code, char *pos)
     return pos;
 }
 
-static inline char * utf8_convert_iso(const char *txt, size_t len)
+static inline char * utf8_convert_iso(const char *_txt, size_t len)
 {
     int            dlen;
     char          *ret;
-    const char    *cpos;
+    const uint8_t *txt;
+    const uint8_t *cpos;
     char          *pos;
+
+    txt = (uint8_t *) _txt;
 
     for(dlen = 0, cpos = txt; cpos != txt + len; ++cpos)
         dlen += utf8_code_encoding_size(*cpos);
