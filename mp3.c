@@ -345,9 +345,10 @@ typedef struct __attribute__((packed)) id3_v2_hdr_t {
 typedef struct __attribute__((packed)) id3_v2_frame_t {
     uint32_t id;
     uint8_t  size[4];
-    uint16_t padding           :14;
-    uint16_t unsynchronisation : 1;
+    uint8_t  padding1          : 8;
     uint16_t data_length       : 1;
+    uint16_t unsynchronisation : 1;
+    uint8_t  padding2          : 6;
 } id3_v2_frame_t;
 
 static size_t id3_v2_get_size(uint8_t *data)
@@ -415,6 +416,10 @@ static size_t id3_v2_decode(uint8_t *buf, size_t len, id3_v2_cb cb, void *data)
     }
 
     while((len - pos) >= sizeof(id3_v2_frame_t)) {
+        char            *txt;
+        size_t           txt_len;
+        unsigned int     i;
+
         frame    = (id3_v2_frame_t*)(buf + pos);
         pos     += sizeof(id3_v2_frame_t);
         data_len = id3_v2_get_size(frame->size);
@@ -426,10 +431,31 @@ static size_t id3_v2_decode(uint8_t *buf, size_t len, id3_v2_cb cb, void *data)
             data_len -= sizeof(uint32_t);
             pos      += sizeof(uint32_t);
         }
-      /* data = Id3.getUnsynchronisation(data) if(flag & 0x0002 == 0x0002); */
+        
+        if(hdr->unsynchronisation || frame->unsynchronisation) {
+            unsigned char *cur;
+
+            txt     = alloca(data_len);
+            txt_len = 0;
+
+            cur = (unsigned char *) buf + pos;
+            for(i = 0; i < data_len - 1; ++i, ++txt_len) {
+                txt[txt_len] = cur[i];
+                if(cur[i] == 0xFF && cur[i + 1] == 0x00) {
+                    i++;
+                }
+            }
+            if(i != data_len) {
+                txt[txt_len] = cur[i];
+                txt_len++;
+            }
+        } else {
+            txt     = (char*) buf + pos;
+            txt_len = data_len;
+        }
 
         if(cb)
-            cb(htonl(frame->id), (char *)buf + pos, data_len, data);
+            cb(htonl(frame->id), txt, txt_len, data);
 
         pos += data_len;
     }
