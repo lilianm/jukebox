@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <assert.h>
 
 #include "mp3.h"
@@ -507,6 +508,20 @@ static void mp3_save_tag(uint32_t id, char *str, size_t size, void *data)
     }
 }
 
+static inline size_t mp3_trim_tag_v1(const char *str, size_t max)
+{
+    const char *end;
+
+    end = memchr(str, '\0', max);
+    if(end == NULL) {
+        end = str + max;
+    }
+
+    while(isspace(end[-1]) && end != str)
+        end--;
+    return end - str;
+}
+
 int mp3_info_decode(mp3_info_t *info, char *file)
 {
     struct stat          stat;
@@ -565,21 +580,15 @@ int mp3_info_decode(mp3_info_t *info, char *file)
     if(info_v1) {
         size_t size;
         if(info->title == NULL) {
-            size = strlen(info_v1->title);
-            if(size > sizeof(info_v1->title))
-                size = sizeof(info_v1->title);
+            size = mp3_trim_tag_v1(info_v1->title, sizeof(info_v1->title));
             info->title  = convert_to_utf8(info_v1->title, size, ISO_8859_1);
         }
         if(info->album == NULL) {
-            size = strlen(info_v1->album);
-            if(size > sizeof(info_v1->album))
-                size = sizeof(info_v1->album);
+            size = mp3_trim_tag_v1(info_v1->album, sizeof(info_v1->album));
             info->album  = convert_to_utf8(info_v1->album, size, ISO_8859_1);
         }
         if(info->artist == NULL) {
-            size = strlen(info_v1->artist);
-            if(size > sizeof(info_v1->artist))
-                size = sizeof(info_v1->artist);
+            size = mp3_trim_tag_v1(info_v1->artist, sizeof(info_v1->artist));
             info->artist = convert_to_utf8(info_v1->artist, size, ISO_8859_1);
         }
         if(info->track == 0)
