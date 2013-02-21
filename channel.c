@@ -158,8 +158,11 @@ void channel_init(void)
 
 int channel_next(channel_t *c)
 {
-    mp3_stream_close(c->stream);
-    c->stream = NULL;
+    if(c->stream) {
+        timeval_add_usec(&c->start, c->stream->pos);
+        mp3_stream_close(c->stream);
+        c->stream = NULL;
+    }
 
     return 0;
 }
@@ -172,9 +175,12 @@ int channel_previous(channel_t *c)
     if(mid == -1)
         return -1;
 
-    mp3_stream_close(c->stream);
-    c->stream = db_get_song(&mid);
-    song_queue_add(c->queue, mid);
+    if(c->stream) {
+        timeval_add_usec(&c->start, c->stream->pos);
+        mp3_stream_close(c->stream);
+        c->stream = db_get_song(&mid);
+        song_queue_add(c->queue, mid);
+    }
 
     return 0;
 }
