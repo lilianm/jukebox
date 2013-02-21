@@ -126,11 +126,19 @@ static channel_t * channel_new(char *user)
 channel_t * channel_add_user(char *channel, user_t *u)
 {
     channel_t      *c;
+    struct timeval  now;
 
     c = hash_get(channel_list, channel);
     if(c) {
         if(c->user != NULL && c->user != u)
-            return NULL; // must manage this case
+            return NULL; // must manage multi user
+
+        if(user_get_nb_socket(u) == 1) { // Resynchronisation
+            gettimeofday(&now, NULL);
+            c->start = now;
+            timeval_add_usec(&c->start, -c->stream->pos);
+        }
+
 
         c->user = u;
 
