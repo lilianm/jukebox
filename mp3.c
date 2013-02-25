@@ -292,9 +292,14 @@ static inline char * convert_to_utf8(char *txt, size_t len, enum charset from)
     case UTF16_LE:
         return utf8_convert_utf16_le(txt, len);
     case UTF16_BOM:
-        if(le16toh(*((uint16_t *)txt)) == 0xFEFF)
-            return (char *) utf8_convert_utf16_le(txt + 2, len - 2);    
-        return (char *) utf8_convert_utf16_be(txt + 2, len - 2);
+        switch(le16toh(*((uint16_t *)txt))) {
+        case 0xFEFF:
+            return utf8_convert_utf16_le(txt + 2, len - 2);
+        case 0xFFFE:
+            return utf8_convert_utf16_be(txt + 2, len - 2);
+        default:
+            return utf8_convert_utf16_le(txt, len);
+        }
     }
 
     return NULL;
