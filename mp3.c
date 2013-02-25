@@ -352,12 +352,30 @@ typedef struct __attribute__((packed)) id3_v2_frame_t {
     uint8_t  padding2          : 6;
 } id3_v2_frame_t;
 
+typedef struct __attribute__((packed)) id3_v2_2_frame_t { // For ID3 v2.2
+    uint8_t  id[3];
+    uint8_t  size[3];
+} id3_v2_2_frame_t;
+
 static size_t id3_v2_get_size(uint8_t *data)
 {
     int i;
     int size = 0;
 
     for(i = 0; i < 4; ++i) {
+        size *= 128;
+        size += data[i];
+    }
+    
+    return size;
+}
+
+static size_t id3_v2_2_get_size(uint8_t *data)
+{
+    int i;
+    int size = 0;
+
+    for(i = 0; i < 3; ++i) {
         size *= 128;
         size += data[i];
     }
@@ -391,7 +409,6 @@ static size_t id3_v2_decode(uint8_t *buf, size_t len, id3_v2_cb cb, void *data)
     size_t               data_len;
     size_t               pos            = 0;
     id3_v2_hdr_t        *hdr;    
-    id3_v2_frame_t      *frame;
 
     hdr = (id3_v2_hdr_t*)buf;
     CHECK_SIZE(sizeof(id3_v2_hdr_t));
@@ -420,20 +437,37 @@ static size_t id3_v2_decode(uint8_t *buf, size_t len, id3_v2_cb cb, void *data)
         char            *txt;
         size_t           txt_len;
         unsigned int     i;
+        uint32_t         id;
+        int              unsynchronisation = 0;
 
-        frame    = (id3_v2_frame_t*)(buf + pos);
-        pos     += sizeof(id3_v2_frame_t);
-        data_len = id3_v2_get_size(frame->size);
-        if(data_len == 0)
-            return pos;
-        CHECK_SIZE(data_len);
+        if(hdr->major <= 2) {
+            id3_v2_2_frame_t *frame;
 
-        if(frame->data_length) {
-            data_len -= sizeof(uint32_t);
-            pos      += sizeof(uint32_t);
+            frame    = (id3_v2_2_frame_t*)(buf + pos);
+            pos     += sizeof(id3_v2_2_frame_t);
+            data_len = id3_v2_2_get_size(frame->size);
+            if(data_len == 0)
+                return pos;
+            CHECK_SIZE(data_len);
+
+            id   = ID3_ID(frame->id[0], frame->id[1], frame->id[2], 0);
+        } else {
+            id3_v2_frame_t *frame;
+
+            frame    = (id3_v2_frame_t*)(buf + pos);
+            pos     += sizeof(id3_v2_frame_t);
+            data_len = id3_v2_get_size(frame->size);
+            if(data_len == 0)
+                return pos;
+            CHECK_SIZE(data_len);
+
+            data_len         -= sizeof(uint32_t);
+            pos              += sizeof(uint32_t);
+            id                = htonl(frame->id);
+            unsynchronisation = frame->unsynchronisation;
         }
-        
-        if(hdr->unsynchronisation || frame->unsynchronisation) {
+
+        if(hdr->unsynchronisation || unsynchronisation) {
             unsigned char *cur;
 
             txt     = alloca(data_len);
@@ -456,7 +490,7 @@ static size_t id3_v2_decode(uint8_t *buf, size_t len, id3_v2_cb cb, void *data)
         }
 
         if(cb)
-            cb(htonl(frame->id), txt, txt_len, data);
+            cb(id, txt, txt_len, data);
 
         pos += data_len;
     }
@@ -475,18 +509,22 @@ static void mp3_save_tag(uint32_t id, char *str, size_t size, void *data)
     switch(id)
     {
     case ID3_ID('T', 'I', 'T', '2'):
+    case ID3_ID('T', 'T', '2', 0):
         if(info->title == NULL)
             info->title = id3_v2_get_string(str, size);
         break;
     case ID3_ID('T', 'A', 'L', 'B'):
+    case ID3_ID('T', 'A', 'L', 0):
         if(info->album == NULL)
             info->album = id3_v2_get_string(str, size);
         break;
     case ID3_ID('T', 'P', 'E', '1'):
+    case ID3_ID('T', 'P', '1', 0):
         if(info->artist == NULL)
             info->artist = id3_v2_get_string(str, size);
         break;
     case ID3_ID('T', 'R', 'C', 'K'):
+    case ID3_ID('T', 'R', 'K', 0):
         if(info->track == 0) {
             txt = id3_v2_get_string(str, size);
             info->track = atoi(txt);
