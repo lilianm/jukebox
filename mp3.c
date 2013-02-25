@@ -352,8 +352,8 @@ typedef struct __attribute__((packed)) id3_v2_frame_t {
     uint32_t id;
     uint8_t  size[4];
     uint8_t  padding1          : 8;
-    uint16_t data_length       : 1;
-    uint16_t unsynchronisation : 1;
+    uint8_t  data_length       : 1;
+    uint8_t  unsynchronisation : 1;
     uint8_t  padding2          : 6;
 } id3_v2_frame_t;
 
@@ -466,8 +466,11 @@ static size_t id3_v2_decode(uint8_t *buf, size_t len, id3_v2_cb cb, void *data)
                 return pos;
             CHECK_SIZE(data_len);
 
-            data_len         -= sizeof(uint32_t);
-            pos              += sizeof(uint32_t);
+            if(frame->data_length) { 
+                data_len         -= sizeof(uint32_t);
+                pos              += sizeof(uint32_t);
+            }
+
             id                = htonl(frame->id);
             unsynchronisation = frame->unsynchronisation;
         }
