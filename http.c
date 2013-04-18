@@ -42,10 +42,14 @@ struct http_request {
     stream_t               uri;
     vector_option_t        options;
     char                   header[64*1024];
-    int                    header_length;
-    int                    content_length;
 
-    void*                  data;
+    void                  *content_data;
+    size_t                 content_length;
+
+    uint32_t               content   :1;
+    uint32_t               remaining :31;
+
+    void                  *data;
     free_session_f         free_data;
 };
 
@@ -95,7 +99,8 @@ static inline void http_request_init(http_request_t *hr)
 {
     event_output_init(&hr->output);
     vector_option_init(&hr->options);
-    hr->header_length = 0;
+    hr->remaining     = sizeof(hr->header);
+    hr->content       = 0;
     hr->status        = 0;
 }
 
@@ -385,26 +390,16 @@ void http_send_500(http_request_t *hr)
                       internal_error_response, sizeof(internal_error_response) - 1, NULL, NULL);
 }
 
-static int http_header_decode(http_request_t *hr, int sck)
+static int http_header_decode(http_request_t *hr)
 {
     stream_t            line;
     stream_t            content_length;
     stream_t            data;
     stream_t            header;
-    const char         *remaining;
-    http_node_t        *root           = hr->server->root;
-    struct http_node   *current;
-    size_t              remaining_size;
-    char                buffer[512];
-    char               *login          = NULL;
-    char               *password       = NULL;
-    stream_t            out;
 
     assert(hr);
 
-    (void) sck;
-
-    data = stream_init(hr->header, hr->header_length);
+    data = stream_init(hr->header, sizeof(hr->header) - hr->remaining);
 
     if(stream_find_mem(&data, "\r\n\r\n", 4, &header) == -1)
         return -1;
@@ -422,6 +417,30 @@ static int http_header_decode(http_request_t *hr, int sck)
     } else {
         hr->content_length = atoi(content_length.data);
     }
+    hr->remaining = hr->content_length;
+    hr->content   = 1;
+    if(hr->content_length) {
+        hr->content_data    = malloc(hr->content_length);
+        memcpy(hr->content_data, data.data, stream_len(&data));
+        hr->remaining      -= stream_len(&data);
+    }
+
+    return 0;
+}
+
+static int http_content_decode(http_request_t *hr) 
+{
+    const char         *remaining;
+    size_t              remaining_size;
+    struct http_node   *current;
+    char               *login          = NULL;
+    char               *password       = NULL;
+    stream_t            out;
+    http_node_t        *root           = hr->server->root;
+    char                buffer[512];
+
+    if(hr->remaining)
+        return -1;
 
     print_debug("HTTP request %.*s", stream_len(&hr->uri), hr->uri.data);
 
@@ -458,8 +477,6 @@ static int http_header_decode(http_request_t *hr, int sck)
 
     end:
     if(!(hr->status & HTTP_REQUEST_STATUS_DETACH)) {
-        hr->header_length = stream_len(&data);
-        memmove(hr->header, data.data, hr->header_length);
         vector_option_reset(&hr->options);
     } else {
         if(hr->data && hr->free_data)
@@ -467,6 +484,8 @@ static int http_header_decode(http_request_t *hr, int sck)
         hr->server->nref--;
         free(hr);
     }
+    hr->remaining = sizeof(hr->header);
+    hr->content   = 0;
 
     return 0;
 }
@@ -475,31 +494,48 @@ static void on_http_client_data(event_t *ev, int sck, void *data)
 {
     int                 ret;
     http_request_t     *hr;
+    void               *buffer;
 
     hr = (http_request_t *)data;
 
+    if(hr->content) {
+        buffer = (char *) hr->content_data + hr->content_length - hr->remaining;
+    } else {
+        buffer = hr->header + sizeof(hr->header) - hr->remaining;
+    }
+
     retry:
-    ret = recv(sck, hr->header + hr->header_length,
-               sizeof(hr->header) - hr->header_length, MSG_NOSIGNAL);
+    ret = recv(sck, buffer, hr->remaining, MSG_NOSIGNAL);
     if(ret <= 0) {
         if(ret != 0 && errno == EINTR)
             goto retry;
 
-        print_debug("HTTP Connection close: %m");
+        print_debug("HTTP Connection close: %m %i", hr->remaining);
         event_delete(ev);
         close(sck);
         return;
     }
     
-    hr->header_length += ret;
-    if(http_header_decode(hr, sck) != 0) {
-        if(hr->header_length == sizeof(hr->header)) {
-            print_error("HTTP Header size too big");
-            event_delete(ev);
-            free(data);
-            close(sck);
+    hr->remaining -= ret;
+    print_debug("Remaining %i", hr->remaining);
+
+    while(1) {
+        if(!hr->content) {
+            if(http_header_decode(hr) != 0) { // Not complete header
+                print_debug("Header not complete");
+                if(hr->remaining == 0) {
+                    print_error("HTTP Header size too big");
+                    event_delete(ev);
+                    free(data);
+                    close(sck);
+                }
+                return;
+            }
         }
-        return;
+
+        if(http_content_decode(hr) != 0) {
+            return;
+        }
     }
 }
 
