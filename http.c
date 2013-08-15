@@ -83,6 +83,12 @@ void * http_request_get_data(http_request_t *hr)
     return hr->data;
 }
 
+void * http_request_get_content(http_request_t *hr, size_t *len)
+{
+    *len = hr->content_length;
+    return hr->content_data;
+}
+
 int http_request_detach(http_request_t *hr)
 {
     int fd;
@@ -115,7 +121,7 @@ static inline http_request_t * http_request_new(void)
     return hr;
 }
 
-static inline void http_request_line_decode(http_request_t *hr, stream_t *line)
+static inline int http_request_line_decode(http_request_t *hr, stream_t *line)
 {
     assert(hr);
     assert(line);
@@ -124,7 +130,9 @@ static inline void http_request_line_decode(http_request_t *hr, stream_t *line)
     stream_skip(line, 1);
     stream_find_chr(line, ' ', &hr->uri);
     stream_skip(line, 1);
+
     /* TODO: Check HTTP version */
+    return 0;
 }
 
 static inline int http_option_search(http_request_t *hr, char *name, stream_t *out)
@@ -401,8 +409,11 @@ static int http_header_decode(http_request_t *hr)
 
     data = stream_init(hr->header, sizeof(hr->header) - hr->remaining);
 
+    print_debug("Input |%.*s|", stream_len(&data), data.data);
     if(stream_find_mem(&data, "\r\n\r\n", 4, &header) == -1)
         return -1;
+    print_debug("Header |%.*s|", stream_len(&header), header.data);
+    print_debug("Data |%.*s|", stream_len(&data), data.data);
     stream_expand(&header, 2);
 
     stream_find_mem(&header, "\r\n", 2, &line);
@@ -463,6 +474,7 @@ static int http_content_decode(http_request_t *hr)
         }
         if(hr->server->auth(hr, login, password) != 0) {
             http_send_401(hr);
+            printf("end\n");
             goto end;
         }
         hr->status |= HTTP_REQUEST_STATUS_AUTH;
@@ -472,6 +484,7 @@ static int http_content_decode(http_request_t *hr)
         if(current->callback(hr, current->data, remaining, remaining_size) < 0)
             http_send_500(hr);
     } else {
+            printf("end 404\n");
         http_send_404(hr);
     }
 

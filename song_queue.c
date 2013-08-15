@@ -3,15 +3,6 @@
 
 #include "song_queue.h"
 
-struct song_queue {
-    size_t first;
-    size_t pos;
-    size_t nb;
-
-    size_t size;
-    int    mids[0];
-};
-
 void song_queue_clean(song_queue_t *q)
 {
     assert(q);
@@ -47,7 +38,7 @@ song_queue_t * song_queue_new(size_t size)
 
 int song_queue_get(song_queue_t *q, int idx)
 {
-    if(q->nb >= ((idx + q->pos) & (q->size - 1)) ||
+    if(q->nb < ((idx + q->pos) & (q->size - 1)) ||
        q->pos + idx < q->first)
         return -1;
 

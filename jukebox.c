@@ -11,6 +11,7 @@
 #include "event.h"
 #include "user.h"
 #include "http_tool.h"
+#include "song.h"
 
 static char basic_reponse[] =
     "HTTP/1.1 200 OK\r\n"
@@ -61,7 +62,8 @@ http_server_t * jukebox_init(int port)
 {
    http_server_t *server;
 
-    encoder_init("mp3", "encoded", 2);
+    encoder_init("mp3", "encoded", 4);
+    song_init();
     channel_init();
     event_init();
 

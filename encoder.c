@@ -61,7 +61,7 @@ void encode_th(void *data)
     case -2:
         print_warning("Bad tag %s -> %s", enc->src, enc->dst);
         song.status = SONG_STATUS_BAD_TAG;
-        db_new_song(&song);
+        db_song_save(&song);
         mp3_info_free(&info);
         break;
     default:
@@ -124,7 +124,7 @@ void encode_th(void *data)
     else
         song.status = SONG_STATUS_ENCODING_FAIL;
 
-    db_new_song(&song);
+    db_song_save(&song);
 
     mp3_info_free(&info);
     free(data);

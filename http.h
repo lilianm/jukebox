@@ -23,6 +23,8 @@ void http_request_set_data(http_request_t *hr, void *data, free_session_f free);
 
 void * http_request_get_data(http_request_t *hr);
 
+void * http_request_get_content(http_request_t *hr, size_t *len);
+
 http_server_t * http_server_new(uint16_t port);
 
 void http_dump_tree(http_server_t *server);

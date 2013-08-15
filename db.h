@@ -2,38 +2,18 @@
 #define __DB_H__
 
 #include "mp3.h"
-
-typedef enum song_status_t {
-    SONG_STATUS_BAD_TAG       = 2,
-    SONG_STATUS_ENCODING_FAIL = 4,
-    SONG_STATUS_OK            = 5,
-} song_status_t;
-
-typedef struct song_t {
-    int                 mid;
-    char               *src;
-    char               *dst;
-    char               *title;
-    char               *artist;
-    char               *album;
-    unsigned int        years;
-    unsigned int        track;
-    unsigned int        track_nb;
-    unsigned int        genre;
-    song_status_t       status;
-    time_t              mtime;
-    int                 bitrate;
-    int                 duration;
-} song_t;
+#include "song.h"
 
 int db_init(void);
 
-void db_new_song(song_t *song);
+void db_song_save(song_t *song);
+
+song_t * db_song_load(int mid);
+
+int db_song_random(void);
 
 typedef void (*scan_fn)(const unsigned char *src, time_t mtime, void *data);
 
 void db_scan_song(scan_fn fn, void *data);
-
-mp3_stream_t * db_get_song(int *mid);
 
 #endif /* __DB_H__ */

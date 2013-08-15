@@ -1,7 +1,14 @@
 #ifndef __SONG_QUEUE_H__
 #define __SONG_QUEUE_H__
 
-typedef struct song_queue song_queue_t;
+typedef struct song_queue {
+    size_t first;
+    size_t pos;
+    size_t nb;
+
+    size_t size;
+    int    mids[0];
+} song_queue_t;
 
 void song_queue_init(song_queue_t *q, size_t size);
 

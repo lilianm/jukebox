@@ -5,7 +5,7 @@
 #include "channel.h"
 #include "mp3.h"
 #include "event.h"
-#include "db.h"
+#include "song.h"
 #include "time_tool.h"
 #include "display.h"
 #include "hash.h"
@@ -18,6 +18,7 @@ struct channel {
     char            *name;
     user_t          *user;
     struct timeval   start;
+    song_t          *song;
     mp3_stream_t    *stream;
 
     song_queue_t    *queue;
@@ -47,15 +48,14 @@ static void channel_update(event_t *t, const struct timeval *now, void *data)
 
         if(nb) {
             if(c->stream == NULL) {
-                int mid;
-                mid = song_queue_next(c->queue);
+                int     mid;
+ 
+                mid       = song_queue_next(c->queue);
+                c->song   = song_get(mid);
+                c->stream = mp3_stream_open(c->song->dst);
                 if(mid == -1) {
-                    // Get random song
-                    c->stream = db_get_song(&mid);
-                    song_queue_add(c->queue, mid);
+                    song_queue_add(c->queue, c->song->mid);
                     song_queue_next(c->queue);
-                } else {
-                    c->stream = db_get_song(&mid);
                 }
             }
 
@@ -119,7 +119,6 @@ static channel_t * channel_new(char *user)
 
     hash_add(channel_list, c->name, c);
 
-
     return c;
 }
 
@@ -156,6 +155,23 @@ void channel_init(void)
     event_timer_add(200, EVENT_TIMER_KIND_PERIODIC, channel_update, NULL);
 }
 
+song_t * channel_current_song(channel_t *c)
+{
+    return c->song;
+}
+
+int channel_current_song_elapsed(channel_t *c)
+{
+    if(c == NULL || c->stream == NULL)
+        return 0;
+    return c->stream->pos;
+}
+
+song_queue_t * channel_get_queue(channel_t *c)
+{
+    return c->queue;
+}
+
 int channel_next(channel_t *c)
 {
     if(c->stream) {
@@ -178,8 +194,9 @@ int channel_previous(channel_t *c)
     if(c->stream) {
         timeval_add_usec(&c->start, c->stream->pos);
         mp3_stream_close(c->stream);
-        c->stream = db_get_song(&mid);
-        song_queue_add(c->queue, mid);
+        c->song   = song_get(mid);
+        c->stream = mp3_stream_open(c->song->dst);
+        song_queue_add(c->queue, c->song->mid);
     }
 
     return 0;
