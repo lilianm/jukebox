@@ -15,13 +15,21 @@ class EncodingThread < Rev::IO
   attr_reader :file;
   attr_reader :bitrate;
 
-  def initialize(song, bitrate, *args, &block)
+  def initialize(song, bitrate, decoders, *args, &block)
     @block    = block;
     @args     = args;
     @file     = file;
     @bitrate  = bitrate;
     
     log("Encoding #{song.src} -> #{song.dst}");
+
+    src = song.src.gsub(/(["\\$`])/, "\\\\\\1");
+    dst = song.dst.gsub(/(["\\$`])/, "\\\\\\1");
+
+    ext = File.extname(src);
+    decoder = decoders.select do |dec|
+      dec["extensions"].include?(ext) if(dec["extensions"])
+    end.first()
 
     tag = Id3.decode(song.src);
     song.album  = tag.album;
@@ -45,10 +53,9 @@ class EncodingThread < Rev::IO
     end
 
     begin
-      src = song.src.gsub(/(["\\$`])/, "\\\\\\1");
-      dst = song.dst.gsub(/(["\\$`])/, "\\\\\\1");
-      song.bitrate = bitrate;
+      raise "decoder not found" if(decoder == nil);
 
+      song.bitrate = bitrate;
       @song = song;
       rd,  wr = IO.pipe
       rd2, wr2 = IO.pipe
@@ -56,10 +63,11 @@ class EncodingThread < Rev::IO
         wr2.close();
         rd2.close();
         rd.close()
+        cmd = decoder["command"].gsub("%file", src)
         STDOUT.reopen(wr)
         wr.close();
         Process.setpriority(Process::PRIO_PROCESS, 0, 2)
-        exec("mpg123 --stereo -r 44100 -s \"#{src}\"");
+        exec(cmd);
       }
       @pid_decoder = fork {
         rd2.close();
@@ -127,6 +135,9 @@ class Encode < Rev::TimerWatcher
     @bitrate      = conf["bitrate"]    if(conf && conf["bitrate"]);
     @bitrate    ||= DEFAULT_BITRATE;
 
+    @decoder      = conf["decoder"];
+    raise "not decoder present" if(@decoder == nil);
+
     super(@delay_scan, true);
   end
 
@@ -159,7 +170,7 @@ class Encode < Rev::TimerWatcher
 
     @library.change_stat(mid, Library::FILE_ENCODING_PROGRESS);
     begin
-      enc = EncodingThread.new(song, @bitrate, self, @library) { |song, obj, lib|
+      enc = EncodingThread.new(song, @bitrate, @decoder, self, @library) { |song, obj, lib|
         lib.update(song);
         obj.nextEncode(enc);
       }

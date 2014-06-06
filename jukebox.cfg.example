@@ -5,6 +5,11 @@ encode:
   delay_scan: 30
   max_job: 3
   bitrate: 192
+  decoder:
+    -
+      extensions:
+        - ".mp3"
+      command: "mpg123 --stereo -r 44100 -s \"%file\""
 upload:
   max_request_size_in_bytes: 42991616
   max_file_size_in_bytes: 31457280
